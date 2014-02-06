@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.paint.*?>
+
+<fx:root type="VBox" prefHeight="80.0" prefWidth="80.0" spacing="5.0" xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/2.2" fx:controller="org.fjr.collision.ControlTestFXML">
+  <children>
+    <Button id="buttonPlay" fx:id="start" mnemonicParsing="false" onAction="#start" prefWidth="68.0" text="STARTSS" />
+    <Button id="buttonPause" fx:id="pause" mnemonicParsing="false" onAction="#pause" prefWidth="68.0" text="PAUSE" />
+    <Button id="buttonRestart" fx:id="restart" mnemonicParsing="false" onAction="#restart" text="RESTART" />
+  </children>
+</fx:root>
