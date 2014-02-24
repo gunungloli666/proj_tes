@@ -7,6 +7,7 @@ package org.fjr.main;
 public class ArrayPoint {
 
 	String a; 
+	String b = "manyun... "; 
 	public int size;
 	public boolean hasNext;
 	public int[] array;
