@@ -7,8 +7,10 @@ import java.util.Comparator;
 
 public class FastConvexHull {
 	
-	public  <T extends Point> ArrayList<Point> execute(ArrayList<T> points) {
-		ArrayList<Point> xSorted = (ArrayList<Point>) points.clone();
+	public  <T extends Point> ArrayList<Point>
+	execute(ArrayList<T> points) {
+		ArrayList<Point> xSorted = 
+				(ArrayList<Point>) points.clone();
 		Collections.sort(xSorted, new XCompare());
 		int n = xSorted.size();
 		Point[] lUpper = new Point[n];
@@ -20,9 +22,10 @@ public class FastConvexHull {
 			lUpperSize++;
 			while (lUpperSize > 2
 					&& !rightTurn(lUpper[lUpperSize - 3],
-							lUpper[lUpperSize - 2], lUpper[lUpperSize - 1])) {
-				// Remove the middle point of the three last
-				lUpper[lUpperSize - 2] = lUpper[lUpperSize - 1];
+							lUpper[lUpperSize - 2], 
+							lUpper[lUpperSize - 1])) {
+				lUpper[lUpperSize - 2] = 
+						lUpper[lUpperSize - 1];
 				lUpperSize--;
 			}
 		}
@@ -35,9 +38,12 @@ public class FastConvexHull {
 			lLowerSize++;
 			while (lLowerSize > 2
 					&& !rightTurn(lLower[lLowerSize - 3],
-							lLower[lLowerSize - 2], lLower[lLowerSize - 1])) {
-				// Remove the middle point of the three last
-				lLower[lLowerSize - 2] = lLower[lLowerSize - 1];
+							lLower[lLowerSize - 2], 
+							lLower[lLowerSize - 1])) {
+				// Remove the middle point of
+//				the three last
+				lLower[lLowerSize - 2] =
+						lLower[lLowerSize - 1];
 				lLowerSize--;
 			}
 		}
@@ -51,15 +57,19 @@ public class FastConvexHull {
 		return result;
 	}
 
+	
 	private boolean rightTurn(Point a, Point b, Point c) {
-		return (b.getX() - a.getX()) * (c.getY() - a.getY())
-				- (b.getY() - a.getY()) * (c.getX() - a.getX()) > 0;
+		return (b.getX() - a.getX()) * (c.getY() 
+				- a.getY())
+				- (b.getY() - a.getY()) *
+				(c.getX() - a.getX()) > 0;
 	}
 
 	private class XCompare implements Comparator<Point> {
 		@Override
 		public int compare(Point o1, Point o2) {
-			return (new Double(o1.getX())).compareTo(new Double(o2.getX()));
+			return (new Double(o1.getX())).
+					compareTo(new Double(o2.getX()));
 		}
 	}
 }

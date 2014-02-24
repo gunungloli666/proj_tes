@@ -61,6 +61,8 @@ public class SPHParticle extends Particle
     double sphRestDens = 0D; 
     
     
+    double inversMassa = 0D; 
+    
     public SPHParticle(double x, double y ,double vx,
     	   double vy, TypeFluid typeFluid, 
     	   TypeParticle type){
@@ -73,7 +75,16 @@ public class SPHParticle extends Particle
     	   this.sphStiffNear = typeFluid.
     			   getSPHStiffNear(); 
     	   this.type = type; 
+    	   this. massa = typeFluid.getDensitas() 
+    			   * 1.2 ; 
+    	   this.inversMassa = massa > 0? 1./ inversMassa
+    			   : 0.; 
     }
+    
+    public double getInversMassa(){
+    	return inversMassa; 
+    }
+    
 
     public SPHParticle(double x, double y, double vx,
     		double vy, double radius,
@@ -104,8 +115,8 @@ public class SPHParticle extends Particle
     }
 
     public void applyDampingToVelocity(double damping) {
-        vx += (vx * damping);
-        vy += (vy * damping);
+        vx -= (vx * damping);
+        vy -= (vy * damping);
     }
 
     public void backUpVelocity(double dt) {
@@ -113,6 +124,21 @@ public class SPHParticle extends Particle
         vy = (y - oldy) / dt;
         oldx = x;
         oldy = y;
+    }
+    
+    public static double max_vel = 5000; 
+    
+    public void absmin(){
+    	if(vx < 0.){
+    		vx = -1.0 * Math.min(Math.abs(vx), max_vel); 
+    	}else{
+    		vx = 1. * Math.min(Math.abs(vx), max_vel);
+    	}
+    	if(vy < 0.){
+    		vy = -1.0 * Math.min(Math.abs(vy), max_vel); 
+    	}else{
+    		vy = 1. * Math.min(Math.abs(vy), max_vel);
+    	}
     }
 
     public void gravityCorrection(double timeStep) {
@@ -165,13 +191,23 @@ public class SPHParticle extends Particle
     }
 
     public void increasePosition(double dx, double dy) {
-        x += dx;
-        y += dy;
+        x += (dx 
+//        		* inversMassa 
+        		);
+        y += (dy
+//        		* 
+//        		inversMassa
+        		);
     }
 
     public void decreasePosition(double dx, double dy) {
-        x -= dx;
-        y -= dy;
+        x -=  (dx
+//        		* inversMassa 
+        		)
+        		;
+        y -= (dy 
+//        		* inversMassa
+        		);
     }
 
     public double getPressure() {

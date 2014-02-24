@@ -1,12 +1,16 @@
 package fjr.savetoimage;
 
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
 import java.io.File;
 
 import javax.imageio.ImageIO;
 
 import javafx.embed.swing.SwingFXUtils;
+import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.image.WritableImage;
+import javafx.scene.transform.Translate;
 
 public class SaveCanvasToImage {
 	
@@ -17,13 +21,23 @@ public class SaveCanvasToImage {
 	final WritableImage wim; 
 	double width , height ; 
 	
-	File dir; 
-	
+	File dir;
+
+	SnapshotParameters parameter;
+	Graphics2D im;
+	BufferedImage bufferedImage;
+
 	public SaveCanvasToImage(Canvas node){
 		width = node.getWidth(); 
 		height = node.getHeight(); 
 		this.node = node ; 
-		wim = new WritableImage((int) width, (int) height);
+		parameter = new SnapshotParameters(); 
+		parameter.setTransform(new Translate(0, 200));
+		wim = new WritableImage(((int) width) , 
+				((int) height));
+	    bufferedImage = new BufferedImage((int ) width, 
+				 (int) height,
+					BufferedImage.TYPE_INT_ARGB); 
 	}
 	
 	public void setMainFolder(String root){
@@ -35,11 +49,17 @@ public class SaveCanvasToImage {
 	}
 	
 	public void save(String name){
-		String fileName = namaRoot + nameFolder + "/" + name+ ".png"; 
+		String fileName = namaRoot + nameFolder 
+				+ "/" + name+ ".png"; 
 		File file = new File(fileName); 
-		node.snapshot(null, wim);
+		BufferedImage image; 
+		node.snapshot(parameter, wim);
 		try {
-			ImageIO.write(SwingFXUtils.fromFXImage(wim, null), "png",
+			image = SwingFXUtils.
+					fromFXImage(wim, bufferedImage);
+			Graphics2D gd = (Graphics2D) image.getGraphics();
+			gd.translate(0,200 );
+			ImageIO.write(image, "png",
 					file);
 		} catch (Exception s) {
 		}
