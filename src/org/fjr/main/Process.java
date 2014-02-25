@@ -342,7 +342,6 @@ public class Process {
         		new EventHandler<MouseEvent>() {
 					@Override
 					public void handle(MouseEvent e){
-						
 					}
 				}); 
         
@@ -388,8 +387,7 @@ public class Process {
 
         animation = new Timeline();
         animation.getKeyFrames().addAll(
-                new KeyFrame(changeSpeed(),
-                        event));
+                new KeyFrame(changeSpeed(), event));
         thread = new Thread(new Runnable() {
 			@Override
 			public void run() {
