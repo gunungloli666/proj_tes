@@ -70,6 +70,9 @@ public class Process {
     private double xwidth = 500.0;
     private double ywidth = 500.0;
     
+    private double canvasWidth  = xwidth ; 
+    private double canvasHeight = ywidth - 150.0 ; 
+    
     private DecimalFormat format = new 
     		DecimalFormat("###.##");
     
@@ -95,11 +98,15 @@ public class Process {
     private Button buttonGenerateOil;
 
     private double dtFrame = 0.0;
+    
     private double g_SubStep = 1.0;
+    
     private double drawingFactorX = (xwidth - 0.0) 
     		/ (xMax - xMin);
+    
     private double drawingFactorY = (ywidth - 0.0) 
     		/ (yMax - yMin);
+    
     private final GraphicsContext gc;
 
     private double maxRange = 1.0 * smoothingLength;
@@ -112,7 +119,7 @@ public class Process {
             = new ArrayList<>();
     ArrayList<SPhysicsParticle> fluidsphysics=
     		new ArrayList<>();
-    ArrayList<SPhysicsParticle> boundarysphysics
+    ArrayList<SPhysicsParticle> boundarysphysicsq
             = new ArrayList<>();
     ArrayList<SPhysicsParticle> oilsphysics =
     		new ArrayList<>();
@@ -143,8 +150,8 @@ public class Process {
     
     private TypeDrawer typeDrawer;
 
-    TypeInteraction typeInteraction =
-    		TypeInteraction.parallel;
+    TypeInteraction typeInteraction = TypeInteraction
+    		.parallel;
 
     public double getWidth() {
         return xwidth;
@@ -186,6 +193,7 @@ public class Process {
 
     // untuk menggambar perimeter dan convex hull
     CheckBox usingConvexHull;
+    
     CheckBox usingPerimeter;
 
     final double textX = -50;
@@ -224,6 +232,7 @@ public class Process {
     boolean drawConvexHull = false;
 
     CheckBox saveCheckBox;
+    
     int iterasiCount = 0;
 
     AnchorPane anchorpaneController;
@@ -267,34 +276,33 @@ public class Process {
 
     Text textIterasi ; 
     
-    final EventHandler<ActionEvent> event
-            = new EventHandler<ActionEvent>() {
-                @Override
-                public void handle(ActionEvent arg0) {
-                	animasi();
-                }
-            };
-            
-            public void animasi(){
-                defaultStep();
-                if (drawPerimeter) {
-                    createPerimeter();
-                }
-                if (drawConvexHull) {
-                    createConvexHull();
-                }
-                if(draWConcaveHull){
-                	 createConcavHull();
-                }
-                redrawCircle();
-                iterasiCount++;
-                setKeteranganIterasi();
-            }
-            
+	final EventHandler<ActionEvent> event = new EventHandler<ActionEvent>() {
+		@Override
+		public void handle(ActionEvent arg0) {
+			animasi();
+		}
+	};
+
+	public void animasi() {
+		defaultStep();
+		if (drawPerimeter) {
+			createPerimeter();
+		}
+		if (drawConvexHull) {
+			createConvexHull();
+		}
+		if (draWConcaveHull) {
+			createConcavHull();
+		}
+		redrawCircle();
+		iterasiCount++;
+		setKeteranganIterasi();
+	}
+         
             public void setKeteranganIterasi(){
             	gc.setStroke(Color.BLACK);
             	gc.strokeText(("ITERASI: "+Integer.toString
-            			(iterasiCount) ), 10 ,200 );
+            			(iterasiCount) ), 10 , 150 );
             }
             
     ComboBox<TypeFluid> comboBoxFluidaKedua;
@@ -335,8 +343,13 @@ public class Process {
         this.typeDrawer = TypeDrawer.canvas;
         pool = new ForkJoinPool();
         root = new Group();
-        canvas = new Canvas(xwidth,
-                ywidth);
+        canvas = new Canvas( canvasWidth,
+        			canvasHeight );
+        
+//        canvas.setStyle("-fx-background-color: BLACK");
+        
+        canvas.setStyle("-fx-background-color: transparent;");
+        
         
         canvas.addEventHandler(MouseEvent.MOUSE_CLICKED,
         		new EventHandler<MouseEvent>() {
@@ -355,6 +368,7 @@ public class Process {
         		(2.0 * smoothingLength));
         gridY = (int) ((yMax - yMin) / 
         		(2.0 * smoothingLength));
+        
         hash = new ArrayList[gridX][gridY];
 
         step = 0.9 * smoothingLength;
@@ -388,6 +402,7 @@ public class Process {
         animation = new Timeline();
         animation.getKeyFrames().addAll(
                 new KeyFrame(changeSpeed(), event));
+        
         thread = new Thread(new Runnable() {
 			@Override
 			public void run() {
@@ -449,11 +464,15 @@ public class Process {
             }};
 
         if (typeDrawer == TypeDrawer.canvas) {
-            root.getChildren().add(new BorderPane() {{
-                    getChildren().addAll(canvas);
-                }}
-            );
-        }
+         }
+        
+        root.getChildren().add(
+        		new BorderPane() {{
+        		setStyle("-fx-background-color: BLACK;");
+                getChildren().addAll(canvas);
+            }}
+        );
+
 
         FlowPane flow = new FlowPane();
         flow.setOrientation(Orientation.VERTICAL);
@@ -706,8 +725,8 @@ public class Process {
 			int y1 = curredge.getY();
 			int x2 = curredge.next.getX();
 			int y2 = curredge.next.getY();
-			y1 = ((int) ywidth) - y1;
-			y2 = ((int) ywidth) - y2;
+			y1 = ((int) canvasHeight) - y1;
+			y2 = ((int) canvasHeight) - y2;
 			gc.strokeLine(x1, y1, x2, y2);
 		} while ((curredge = curredge.next).next != null
 				&& curredge != outeredge);
@@ -925,6 +944,7 @@ public class Process {
         // gravity correction
         for (int i = 0; i < listFluid.size(); i++) {
             SPHParticle p = listFluid.get(i);
+            
             p.gravityCorrection(timeStep);
             p.initPressure();
         }
@@ -1188,7 +1208,9 @@ public class Process {
     
     private void redrawCircle() {
         gc.setFill(Color.WHITE);
-        gc.fillRect(0,0, xwidth, ywidth);
+        gc.fillRect(0,0, canvasWidth, canvasHeight);
+        gc.setStroke(Color.MAGENTA); 
+        gc.strokeRect(0, 0, canvasWidth, canvasHeight);
         gc.setStroke(Color.MEDIUMSPRINGGREEN);
         for (int i = 0; i < allParticle.size();
                 i++) {
@@ -1197,7 +1219,8 @@ public class Process {
                     * drawingFactorX;
             double x = p.getX() * drawingFactorX;
             double y = p.getY() * drawingFactorY;
-            y = ywidth - y; // inverting axis
+            y = canvasHeight  - y; // inverting axis
+//            y = y - 200; 
             Color color = null;
             switch (p.type) {
                 case Water:
@@ -1208,19 +1231,6 @@ public class Process {
                     break;
                 case Second:
                 	color = Color.MEDIUMSPRINGGREEN;
-//                    switch (fluidaKedua) {
-//					case GLICERIN:
-//						color = Color.DARKGREEN; 
-//						break;
-//					case OLI: 
-//						color = Color.MEDIUMSPRINGGREEN;
-//						break; 
-//					case MADU:
-////						color = Color.MAGENTA;
-//						break ;
-//					default:
-//						break;
-//					}
                     break;
             }
             gc.setFill(color);
@@ -1290,13 +1300,13 @@ public class Process {
         gc.setLineWidth(1);
         double x = listX.get(0) * drawingFactorX;
         double y = listY.get(0) * drawingFactorY;
-        y = ywidth - y;
+        y = canvasHeight - y;
         gc.moveTo(x,  y);
         gc.stroke();
         for (int i = 0; i < listX.size(); i++) {
             x = listX.get(i) * drawingFactorX;
             y = listY.get(i) * drawingFactorY;
-            y = ywidth - y;
+            y = canvasHeight - y;
             gc.lineTo(x,
                     y);
             gc.stroke();
@@ -1312,21 +1322,21 @@ public class Process {
         gc.setLineWidth(1);
         double x = list.get(0).getX() * drawingFactorX;
         double y = list.get(0).getY() * drawingFactorY;
-        y = ywidth - y;
+        y = canvasHeight  - y;
         gc.moveTo(x,
                 y);
         gc.stroke();
         for (int i = 0; i < list.size(); i++) {
             x = list.get(i).getX() * drawingFactorX;
             y = list.get(i).getY() * drawingFactorY;
-            y = ywidth - y;
+            y = canvasHeight - y;
             gc.lineTo(x,
                     y);
             gc.stroke();
         }
         x = list.get(0).getX() * drawingFactorX;
         y = list.get(0).getY() * drawingFactorY;
-        y = ywidth - y;
+        y = canvasHeight - y;
         gc.lineTo(x,
                 y);
         gc.stroke();
