@@ -54,7 +54,8 @@ import org.fjr.particle.TypeParticle;
 
 import signalprocesser.voronoi.VPoint;
 import signalprocesser.voronoi.VoronoiAlgorithm;
-import signalprocesser.voronoi.representation.triangulation.TriangulationRepresentation;
+import signalprocesser.voronoi.representation.triangulation
+				.TriangulationRepresentation;
 import signalprocesser.voronoi.representation.triangulation.VHalfEdge;
 import fjr.savetoimage.SaveCanvasToImage;
 
@@ -121,8 +122,6 @@ public class Process {
     
     private boolean usingStaggeredGrid = true;
     private boolean usingBoundaryParticle = false;
-    private boolean usingSingleInteraction = false;
-
     int cycleCount = Timeline.INDEFINITE;
 
     final Canvas canvas;
@@ -218,7 +217,7 @@ public class Process {
     		new ArrayList<>();
 
     SaveCanvasToImage save;
-    TextField fieldName;
+    TextField fieldSnapshootName;
 
     boolean saveToFile = false;
     boolean drawPerimeter = false;
@@ -290,14 +289,7 @@ public class Process {
                 redrawCircle();
                 iterasiCount++;
                 setKeteranganIterasi();
-                if (saveToFile) {
-                    saveCanvas(iterasiCount);
-                }
-//                if(iterasiCount % 50 == 0){
-//                	 saveCanvas(iterasiCount);
-//                }
             }
-            
             
             public void setKeteranganIterasi(){
             	gc.setStroke(Color.BLACK);
@@ -305,34 +297,26 @@ public class Process {
             			(iterasiCount) ), 10 ,200 );
             }
             
-            ComboBox<TypeFluid> comboBoxFluidaKedua;
-            
-            TypeFluid fluidaKedua = TypeFluid.OLI;
-            
-            String fluidaJenisOli = "OLI";
-            
-            String fluidaJenisGliserin = "GLISERIN";
-            
-            String tipeFluidaKedua = fluidaJenisOli;
-            
-         
-            
-    public void addPolutan(double x, double y){
-    	
-    }
+    ComboBox<TypeFluid> comboBoxFluidaKedua;
     
+    TypeFluid fluidaKedua = TypeFluid.OLI;
     
+    String fluidaJenisOli = "OLI";
+    
+    String fluidaJenisGliserin = "GLISERIN";
+    
+    String tipeFluidaKedua = fluidaJenisOli;
+            
     boolean runningState = false; 
-            
-    
+                
     // untuk membuat concavHull... 
     TriangulationRepresentation triangular;
- 
 
-    
     Thread thread; 
     boolean runningThread = true; 
     
+    
+    Button snapshotButton; 
     
     @SuppressWarnings("unchecked")
     public Process() throws Exception {
@@ -358,6 +342,7 @@ public class Process {
         		new EventHandler<MouseEvent>() {
 					@Override
 					public void handle(MouseEvent e){
+						
 					}
 				}); 
         
@@ -382,7 +367,10 @@ public class Process {
         }
 
         save = new SaveCanvasToImage(canvas);
-        fieldName = new TextField() {{
+        
+        save.setMainFolder("hasil hasil"); 
+        
+        fieldSnapshootName = new TextField() {{
                 setPrefSize(120,30);
                 setText("test");
             }};
@@ -402,19 +390,13 @@ public class Process {
         animation.getKeyFrames().addAll(
                 new KeyFrame(changeSpeed(),
                         event));
-        // uji thread... 
-        // ternyata g bagus... 
         thread = new Thread(new Runnable() {
 			@Override
 			public void run() {
 				while(runningThread){
 					Platform.runLater(new Runnable() {
-						
 						@Override
 						public void run() {
-							// TODO Auto-generated method stub
-//							animasi();
-							System.out.println("yes... "); 
 							try{
 								Thread.sleep(500);
 							}catch(Exception e){
@@ -486,20 +468,6 @@ public class Process {
                 buttonRestart,
                 buttonGenerateOil);
         
-//        flow.getChildren().add(
-//        		new HBox(){{
-//        			setSpacing(10);
-//        			getChildren().
-//        			addAll(
-//        					new Text("ITERASI:")
-//        					,textIterasi = new 
-//        					Text(Integer.toString
-//        							(iterasiCount)){{
-//        			
-//        				}}); 
-//        		}}
-//    		); 
-
         root.getChildren().add(flow);
 
         convexHull = new FastConvexHull();
@@ -513,7 +481,7 @@ public class Process {
         animation.setCycleCount(cycleCount);
         animation.setAutoReverse(false);
 
-        setKeteranganIterasi();
+        setKeteranganIterasi(); 
     }
 
     double deltaX, deltaY, stepPerimeter;
@@ -754,6 +722,11 @@ public class Process {
         String s = Integer.toString(number);
         save.save(s);
     }
+    
+    public void saveCanvas(String a){
+    	String s = "" + a; 
+    	save.save(s); 
+    }
 
     Duration durasi = Duration.millis(100);
 
@@ -784,7 +757,8 @@ public class Process {
 
     public void play() {
     	runningState = true; 
-        save.setMainFolder(fieldName.getText());
+//      save.setMainFolder(fieldSnapshootName.getText());
+//    	save.setMainFolder("hasil akhir");
         animation.play();
 //        thread.start();
     }
@@ -1944,14 +1918,6 @@ public class Process {
 					}
 				});
 
-		saveCheckBox.setOnAction(new 
-				EventHandler<ActionEvent>() {
-			@Override
-			public void handle(ActionEvent arg0) {
-				saveToFile = saveCheckBox.isSelected();
-			}
-		});
-
 		checkBoxConvexHull.setOnAction(new
 				EventHandler<ActionEvent>() {
 			@Override
@@ -2010,9 +1976,7 @@ public class Process {
 						format(a));
 				animation.setCycleCount(a);
 			}
-
 		});
-		
     }
 
     private void setControl() {
@@ -2264,14 +2228,23 @@ public class Process {
 
 		HBox box = new HBox() {{
 				setSpacing(10);
-				getChildren().addAll(fieldName, 
-						saveCheckBox = new CheckBox(){{
-						setText("save to file");
-						if (saveToFile) {
-							setSelected(true);
-						}
-					}
-				});
+				getChildren().addAll(fieldSnapshootName, 
+					snapshotButton = new Button(){{
+						setText("TAKE A SNAP");
+						setPrefWidth(100);
+						setOnAction(new 
+								EventHandler
+								<ActionEvent>() {
+							@Override
+							public void handle
+							(ActionEvent arg0) {
+								saveCanvas(
+								fieldSnapshootName
+								.getText());
+							}
+						});
+					}}
+				);
 			}};
 
 		additionalController.getChildren().add(box);
@@ -2309,8 +2282,8 @@ public class Process {
 				setSelected(true); 
 			}
 		}};  
-		GridPane pane = new GridPane() {
-			{
+		
+		GridPane pane = new GridPane() {{
 				setVgap(10);
 				setHgap(10);
 				add(checkBoxPerimeter, 0, 0);
@@ -2318,8 +2291,8 @@ public class Process {
 				add(checkBoxConvexHull, 0, 1);
 				add(comboBoxConvexHull, 1, 1);
 				add(checkBoxConcavHull, 0, 2);
-			}
-        };
+			}}
+		;
 
         flowPane.getChildren().addAll(boxTypeInteraction,
                 boxNumberTimeStep,
