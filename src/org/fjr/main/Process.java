@@ -299,11 +299,11 @@ public class Process {
 		setKeteranganIterasi();
 	}
          
-            public void setKeteranganIterasi(){
-            	gc.setStroke(Color.BLACK);
-            	gc.strokeText(("ITERASI: "+Integer.toString
-            			(iterasiCount) ), 10 , 150 );
-            }
+    public void setKeteranganIterasi(){
+    	gc.setStroke(Color.BLACK);
+    	gc.strokeText(("ITERASI: "+Integer.toString
+    			(iterasiCount) ), 10 , 150 );
+    }
             
     ComboBox<TypeFluid> comboBoxFluidaKedua;
     
