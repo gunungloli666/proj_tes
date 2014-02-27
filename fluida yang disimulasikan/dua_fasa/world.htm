@@ -1,0 +1,4011 @@
+<html><head>
+<meta charset="utf-8">
+<script src="jquery.js"></script>
+<script src="js/jquery-ui-1.8.19.custom.min.js"></script>
+<link rel="stylesheet" href="css/jquery-ui-1.8.19.custom.css">
+<script src="ivank.js"></script>
+<style>
+#c:active { cursor: pointer; }
+audio { display: none; }
+
+</style>
+<script>
+Array.prototype.append = function(arr) {
+	if (!arr) return;
+	for (var i=0; i < arr.length; i++)
+		this.push( arr[i] );
+}
+Array.prototype.last = function() {
+	return this[ this.length-1 ];
+}
+String.prototype.n = function(times) {
+	return (new Array(times + 1)).join(this);
+}
+String.prototype.normalizeLength = function(a) {
+	if (this.length > a) return this.substr(0, a);
+	if (this.length < a) return this + " ".n(a-this.length);
+	return this;
+}
+
+function isOk_(f)
+{
+	return (!isNaN(f) && isFinite(f));
+}
+function isOk()
+{
+	for (var i=0; i < arguments.length; i++)
+	{
+		var a = arguments[i];
+		if (typeof a.x != 'undefined')	// vector
+		{
+			if (!isOk(a.x, a.y))
+				return false;
+		}
+		else
+		{
+			if (!isOk_(a))
+				return false;
+		}
+	}
+
+	return true;
+}
+
+var applyingFns = [];
+function applyGlobalParamsLocally(fn)
+{
+	if (fn)
+	{
+		applyingFns.push(fn);
+		return;
+	}
+
+	for (var i=0; i < applyingFns.length; i++)
+	{
+		var fn = applyingFns[i];
+		fn();
+	}
+}
+
+////////////////////////////////////////////////////////////
+/*
+addItems('water', 10)
+$.each(circles, function(i, e) {  if (e.m.name=='dirt') e.setDensity(0)  });
+*/
+
+var g_nonsphPress		= 80000;
+var g_nonsphPressNear	= 80000;
+var g_sphQ2		= 1;
+var g_sphQ3		= 3;
+var g_sphQmult	= 1;
+
+var g_cellsActive = 0;
+var DEBUG = true;		// makes it much slower
+var g_lastUsedObj;
+
+var g_maxVelLimit = 140000;
+var g_skipJointCollision = 0;
+var g_useRK = 1;
+var g_useRkVel = 1;
+var g_useRkPos = 1;
+
+var g_meldOnlySameMaterial = 0;
+var g_bMelding		= 0;
+var g_maxLinks		= 6;
+var g_sprK			= 10000;//25260;
+var g_sprDamp		= 0;
+var g_sprMax		= 4.4;
+var g_sprLenRatio	= 1.0;
+
+var g_b1 = 1;
+var g_f1 = 1;
+var g_f2 = 1;
+var g_f3 = 1;
+var g_f4 = 1;
+
+var g_radius			= 14;
+var g_sphRadius			= g_radius*2;
+var g_sphStiff			= 6000;
+var g_sphStiffNear		= 10000;
+var g_sphRestDensity	= 0;
+var g_spriteScale		= 1.0;//g_sphRadius/8;
+
+
+/* encapsulate grid functionality:
+
+grid:
+	step
+	stepBig
+	grid
+	gridDyn
+	gridBig
+	gridMin, gridMax
+	drawGrid
+	init(step, stepBig)
+	setInfoObj
+	regridObj
+	arrNeedUpdate <- objects should call needsGridUpdate(), which will put them here,
+		so the array only goes over those
+
+	findNearby
+	getInAABB
+
+
+	update(circles, 'checkall')
+
+
+*/
+
+
+// could later implement one more grid, which would be coarser
+var g_gridStep = max(g_radius, g_sphRadius)*1;//3;		// min *1
+var g_grid;
+var g_gridDyn;
+var g_gridMin;
+var g_gridMax;
+
+applyGlobalParamsLocally(function()
+{
+	return;
+	var w = g_materials['water'];
+	var o = g_materials['oil'];
+	var h = g_materials['honey'];
+	w.sphStiff			= g_sphStiff;
+	w.sphStiffNear		= g_sphStiffNear;
+
+	w.sphRestDensity	= g_sphRestDensity;
+	o.sphRestDensity	= g_sphRestDensity;
+	h.sphRestDensity	= g_sphRestDensity;
+	w.spriteScale		= g_spriteScale;
+	o.spriteScale		= g_spriteScale;
+	h.spriteScale		= g_spriteScale;
+	/*
+	*/
+})
+
+var g_HeatMax = 3;
+var g_sequential = 1;
+///////////////////////////////////////////////
+//			SIMULATION
+var badSprite		= 64;
+var g_gravity		= 9;
+var g_nGravity		= v2(0, 1);
+var g_useGrid		= 1;
+var numCircles		= 10;		// <- NUMBER OF CIRCLES
+
+var g_drawGrid		= 0;
+var g_drawHeat		= 0;
+
+var g_drawContacts	= 0;
+var g_jointWidth	= 0;
+var g_timeMult		= 0.99;//502;		// <-- TIME + STEPS
+
+
+// debug
+var fKeys	= 30;//8;
+var fShift	= 2;
+
+// globals
+var stage, dbgs, dbg;
+var bgImage, bgClr;
+var sprites = [];
+var materials = [];
+
+var g_freeCircleId = 1;
+var circles = [];
+var joints = [];
+var grid = [];
+var dt = 0.001;
+var g_fps = 100;
+var dtFrame = 0.001;
+var c0;			// test circle
+var kd = [];	// keys down
+var kc = [];	// keys changed
+var kx = [];	// keys changed really
+
+var g_currMaxVel2 = 0;
+
+/*
+ked je velky damp (30) a steps (200), tak spring zacina byt pruzne pevny pri 4000
+a pri 10000 je takmer kovovo pevny
+- pri damp/spring 20/10k je to trochu roztrasene cele
+- pri damp/spring 30/4k je to dost roztrasene
+- pri damp/spring 30/1k sa to zacina prehybat
+- pri steps 50 je roztrasene aj 30/10k
+		sprng/damp	maxR
+kov		9000/20		r*1.2
+sklo	ako kov		r*1.01
+drevo	2000/100	r*1.2
+zele	200/100		r*1.5	ale slabo sa to kyve este (neskusal som vahu menit)
+voda	10/1		r*1.2
+
+
+SPH:
+
+
+
+*/
+
+
+var g_materials =
+{
+	'default':	// any unset properties will be taken from here
+	{
+		density: 1, velocityDamp: 1,
+		sprite: 'circle', spriteScale: 1,
+		isSph: false, // sph parameters are irrelevant here, but are default values
+		// btw, these are params for water
+		sphStiff: 3000, sphStiffNear: 10000, sphRestDensity: 3,
+	},
+	'water':
+	{
+		sprite: 'water', spriteScale: 1, density: 1,
+		isSph: true,
+	},
+	'honey':
+	{
+		sprite: 'honey', density: 1.5, spriteScale: 1,
+		isSph: true, sphStiff: 20000, sphStiffNear: 5000,
+	},
+	'oil':
+	{
+		sprite: 'oil', density: 0.8, spriteScale: 1,
+		isSph: true, sphStiff: 20000, sphStiffNear: 5000,
+	},
+	'air':
+	{
+		sprite: 'air', spriteScale: 0.5,
+		density: 0.002, velocityDamp: 0,
+		isSph: true, sphStiff: 10000, sphStiffNear: 1000,
+	},
+
+	'player':	{ sprite: 'player', density: 0.8,
+					//spriteScale: 2.5, isSph:1,},
+					spriteScale: 1.0, isSph:0,},
+
+	'iron':		{ sprite: 'iron', density: 8, },
+	'metal':	{ sprite: 'metal', density: 5 },
+	'glass':	{ sprite: 'glass', density: 4 },
+	'ice':		{ sprite: 'ice', },
+	'snow':		{ sprite: 'snow', density: 0.1, velocityDamp: 39, spriteScale: 0.5 },
+	'lava':		{ sprite: 'lava', density: 10, isSph: true, },
+
+	'grass':	{ sprite: 'grass', density: 0.1, },
+	'leafs':	{ sprite: 'leafs', density: 0.1, },
+	'apple':	{ sprite: 'apple', },
+	'orange':	{ sprite: 'orange', },
+	'kiwi':		{ sprite: 'kiwi', },
+	'strawb':	{ sprite: 'strawb', },
+	'banana':	{ sprite: 'banana', },
+
+	'sand':		{ sprite: 'sand', density: 1.2, },
+	'dirt':		{ sprite: 'dirt', density: 2 },
+	'rocks':	{ sprite: 'rocks', density: 5},
+
+	'plank':	{ sprite: 'plank', density: 0.5, },
+	'wood':		{ sprite: 'wood', density: 0.5, },
+	'tree':		{ sprite: 'tree', density: 0.5, },
+
+	'skin':		{ sprite: 'skin', },
+	'bone':		{ sprite: 'bone', density: 2 },
+	'flesh':	{ sprite: 'flesh', },
+	'blood':	{ sprite: 'blood', },
+	'brains':	{ sprite: 'brains', },
+	'piss':		{ sprite: 'piss', isSph: true, },
+	'shit':		{ sprite: 'shit', },
+	'goo':		{ sprite: 'goo', },
+
+	'jelly':	{ sprite: 'jelly', },
+	'flour':	{ sprite: 'flour', },
+};
+
+// iterasi untuk mengeset material yang belum diset... 
+$.each(g_materials, function(matName, material)
+{
+	var defM = g_materials['default'];
+
+	$.each(defM, function(key, defValue)
+	{
+		if (typeof material[key] == 'undefined')
+			material[key] = defValue;
+
+		material.name = matName;
+	});
+});
+
+function delCircles()
+{
+	$.each(circles, function(i, c)
+	{
+		c.remove();
+	});
+	circles = [];
+	fillGrid();
+}
+function delJoints()
+{
+	$.each(joints, function(i, j)
+	{
+		j.remove();
+	});
+	joints = [];
+}
+
+function getLoadId(id)
+{
+	for (var i=0; i < circles.length; i++)
+	{
+		var c = circles[i];
+		if (c.load_id == id)
+			return c;
+	}
+}
+
+// posisi Material ketika mula-mula running
+function introlevel()
+{
+	return '[{"material":"dirt","p":{"x":-144.59520404879004,"y":-10.672370411065913},"v":{"x":0,"y":0},"static":true,"id":11},{"material":"dirt","p":{"x":-96.79530965164304,"y":-8.584861576167441},"v":{"x":0,"y":0},"static":true,"id":12},{"material":"dirt","p":{"x":-143.83654792513698,"y":19.492772138135933},"v":{"x":0,"y":0},"static":true,"id":13},{"material":"dirt","p":{"x":-114.51415546517819,"y":30.73790362795671},"v":{"x":0,"y":0},"static":true,"id":14},{"material":"dirt","p":{"x":-116.61999903433025,"y":-27.894122989458538},"v":{"x":0,"y":0},"static":true,"id":15},{"material":"dirt","p":{"x":-44.418449708260596,"y":-19.020309668183813},"v":{"x":0,"y":0},"static":true,"id":16},{"material":"dirt","p":{"x":-52.41472538653761,"y":-51.73058594498832},"v":{"x":0,"y":0},"static":true,"id":17},{"material":"dirt","p":{"x":-9.232782362960279,"y":-19.746931296922753},"v":{"x":0,"y":0},"static":true,"id":18},{"material":"dirt","p":{"x":-19.3677819063887,"y":-47.34105581618894},"v":{"x":0,"y":0},"static":true,"id":19},{"material":"dirt","p":{"x":-18.16024565882981,"y":-74.46534291110981},"v":{"x":0,"y":0},"static":true,"id":20},{"material":"dirt","p":{"x":8.851370259188116,"y":-53.273998347260545},"v":{"x":0,"y":0},"static":true,"id":21},{"material":"dirt","p":{"x":80.30341436434537,"y":-45.64942848996361},"v":{"x":0,"y":0},"static":true,"id":22},{"material":"dirt","p":{"x":120.16953287087381,"y":-21.231347203600308},"v":{"x":0,"y":0},"static":true,"id":23},{"material":"dirt","p":{"x":68.69239793345332,"y":4.811569885005156},"v":{"x":0,"y":0},"static":true,"id":24},{"material":"dirt","p":{"x":102.66704758163542,"y":3.7243895089522994},"v":{"x":0,"y":0},"static":true,"id":25},{"material":"dirt","p":{"x":109.30349871888757,"y":-44.56559037358602},"v":{"x":0,"y":0},"static":true,"id":26},{"material":"dirt","p":{"x":51.38728418480605,"y":-15.954759281474253},"v":{"x":0,"y":0},"static":true,"id":27},{"material":"dirt","p":{"x":85.35836314130574,"y":-17.586619646634063},"v":{"x":0,"y":0},"static":true,"id":28},{"material":"dirt","p":{"x":160.16807128861547,"y":-28.83329741280113},"v":{"x":0,"y":0},"static":true,"id":29},{"material":"dirt","p":{"x":193.18237041588873,"y":-38.837174410890384},"v":{"x":0,"y":0},"static":true,"id":30},{"material":"dirt","p":{"x":217.7220726571977,"y":-0.7758099464285806},"v":{"x":0,"y":0},"static":true,"id":31},{"material":"dirt","p":{"x":197.70948319882154,"y":20.651948384982006},"v":{"x":0,"y":0},"static":true,"id":32},{"material":"dirt","p":{"x":163.52853292785585,"y":1.4249735475000307},"v":{"x":0,"y":0},"static":true,"id":33},{"material":"dirt","p":{"x":191.8698093816638,"y":-7.583169278647347},"v":{"x":0,"y":0},"static":true,"id":34},{"material":"dirt","p":{"x":258.7371795633808,"y":-8.720283811326226},"v":{"x":0,"y":0},"static":true,"id":35},{"material":"dirt","p":{"x":272.49258855730295,"y":-36.261695479388436},"v":{"x":0,"y":0},"static":true,"id":36},{"material":"dirt","p":{"x":323.95722578372806,"y":-28.889683589684864},"v":{"x":0,"y":0},"static":true,"id":37},{"material":"dirt","p":{"x":306.5520149040967,"y":-5.793485582220455},"v":{"x":0,"y":0},"static":true,"id":38},{"material":"dirt","p":{"x":278.48893032129854,"y":11.781228000883857},"v":{"x":0,"y":0},"static":true,"id":39},{"material":"dirt","p":{"x":295.5928962379694,"y":-54.833315418447455},"v":{"x":0,"y":0},"static":true,"id":40},{"material":"dirt","p":{"x":222.3492145743221,"y":-49.43158605030703},"v":{"x":0,"y":0},"static":true,"id":41},{"material":"dirt","p":{"x":252.97353934682906,"y":-57.83799602079171},"v":{"x":0,"y":0},"static":true,"id":42},{"material":"dirt","p":{"x":22.182849862612784,"y":-15.92156982999495},"v":{"x":0,"y":0},"static":true,"id":43},{"material":"dirt","p":{"x":34.78950885217637,"y":-44.08245540522239},"v":{"x":0,"y":0},"static":true,"id":44},{"material":"dirt","p":{"x":-7.182465181685984,"y":-118.20541776684195},"v":{"x":0,"y":0},"static":true,"id":45},{"material":"dirt","p":{"x":4.3728942312300205,"y":-142.84651825358242},"v":{"x":0,"y":0},"static":true,"id":46},{"material":"dirt","p":{"x":-32.034737568348646,"y":-145.72048597750336},"v":{"x":0,"y":0},"static":true,"id":47},{"material":"dirt","p":{"x":-36.451575335115194,"y":-95.99166066632688},"v":{"x":0,"y":0},"static":true,"id":48},{"material":"dirt","p":{"x":-49.015684170648456,"y":-124.6018002765727},"v":{"x":0,"y":0},"static":true,"id":49},{"material":"dirt","p":{"x":-92.47663851454854,"y":-191.73075426216656},"v":{"x":0,"y":0},"static":true,"id":50},{"material":"dirt","p":{"x":-75.67950525507331,"y":-158.1762534355321},"v":{"x":0,"y":0},"static":true,"id":51},{"material":"dirt","p":{"x":-112.98394699208438,"y":-166.5315594713711},"v":{"x":0,"y":0},"static":true,"id":52},{"material":"dirt","p":{"x":-64.47313283476979,"y":-196.04506262704217},"v":{"x":0,"y":0},"static":true,"id":53},{"material":"dirt","p":{"x":-101.36212995741516,"y":-138.8101208837279},"v":{"x":0,"y":0},"static":true,"id":54},{"material":"dirt","p":{"x":-47.59487931616604,"y":-172.43322349745267},"v":{"x":0,"y":0},"static":true,"id":55},{"material":"dirt","p":{"x":-84.19142765924335,"y":-98.31009087485313},"v":{"x":0,"y":0},"static":true,"id":56},{"material":"dirt","p":{"x":-113.39252855721861,"y":-75.67834949267149},"v":{"x":0,"y":0},"static":true,"id":57},{"material":"dirt","p":{"x":-78.42762796860188,"y":-69.07818204776436},"v":{"x":0,"y":0},"static":true,"id":58},{"material":"dirt","p":{"x":-129.09209490660578,"y":-100.84980467666924},"v":{"x":0,"y":0},"static":true,"id":59},{"material":"dirt","p":{"x":-76.59402647707611,"y":-124.7453177436912},"v":{"x":0,"y":0},"static":true,"id":60},{"material":"dirt","p":{"x":-156.90628589782864,"y":-77.51901704739316},"v":{"x":0,"y":0},"static":true,"id":61},{"material":"dirt","p":{"x":-178.60504616983235,"y":-59.6263034456922},"v":{"x":0,"y":0},"static":true,"id":62},{"material":"dirt","p":{"x":-183.0918392315507,"y":-102.1563104979275},"v":{"x":0,"y":0},"static":true,"id":63},{"material":"dirt","p":{"x":-155.77379240933806,"y":-121.5230364046572},"v":{"x":0,"y":0},"static":true,"id":64},{"material":"dirt","p":{"x":-198.70927310548723,"y":-80.14651286240053},"v":{"x":0,"y":0},"static":true,"id":65},{"material":"dirt","p":{"x":-206.1641043331474,"y":-6.087916434814588},"v":{"x":0,"y":0},"static":true,"id":66},{"material":"dirt","p":{"x":-223.38876654673368,"y":-36.43339789479728},"v":{"x":0,"y":0},"static":true,"id":67},{"material":"dirt","p":{"x":-175.86269970517606,"y":-8.5160974236926},"v":{"x":0,"y":0},"static":true,"id":68},{"material":"dirt","p":{"x":-193.88340264558792,"y":-33.04948560155685},"v":{"x":0,"y":0},"static":true,"id":69},{"material":"dirt","p":{"x":-163.3959765145555,"y":-33.28155238002296},"v":{"x":0,"y":0},"static":true,"id":70},{"material":"dirt","p":{"x":-137.5336029175669,"y":-144.47229786720277},"v":{"x":0,"y":0},"static":true,"id":71},{"material":"dirt","p":{"x":-256.07733468990773,"y":-48.805049886341294},"v":{"x":0,"y":0},"static":true,"id":72},{"material":"dirt","p":{"x":-286.88575614616275,"y":-30.424332100312313},"v":{"x":0,"y":0},"static":true,"id":73},{"material":"dirt","p":{"x":-257.35859125945717,"y":-17.165284449580213},"v":{"x":0,"y":0},"static":true,"id":74},{"material":"dirt","p":{"x":-237.70307700429112,"y":8.465581623491744},"v":{"x":0,"y":0},"static":true,"id":75},{"material":"dirt","p":{"x":-269.04977033659816,"y":11.574990242374042},"v":{"x":0,"y":0},"static":true,"id":76},{"material":"dirt","p":{"x":389.048889413476,"y":-51.85998874095219},"v":{"x":0,"y":0},"static":true,"id":77},{"material":"dirt","p":{"x":404.4107142146677,"y":-8.757594948010023},"v":{"x":0,"y":0},"static":true,"id":78},{"material":"dirt","p":{"x":359.5782151594758,"y":-51.63421027579295},"v":{"x":0,"y":0},"static":true,"id":79},{"material":"dirt","p":{"x":376.1524036489427,"y":-18.32103037678587},"v":{"x":0,"y":0},"static":true,"id":80},{"material":"dirt","p":{"x":345.5380026474595,"y":0.11040941408884919},"v":{"x":0,"y":0},"static":true,"id":81},{"material":"dirt","p":{"x":374.95463914982975,"y":9.506508133067314},"v":{"x":0,"y":0},"static":true,"id":82},{"material":"dirt","p":{"x":402.77595574222505,"y":-101.40019801479343},"v":{"x":0,"y":0},"static":true,"id":83},{"material":"dirt","p":{"x":428.69312564097345,"y":-46.28205360692505},"v":{"x":0,"y":0},"static":true,"id":84},{"material":"dirt","p":{"x":423.046991661191,"y":-82.24877209436659},"v":{"x":0,"y":0},"static":true,"id":85},{"material":"dirt","p":{"x":452.2287735398859,"y":-83.33486019854013},"v":{"x":0,"y":0},"static":true,"id":86},{"material":"dirt","p":{"x":436.96501636877656,"y":-107.57535680246701},"v":{"x":0,"y":0},"static":true,"id":87},{"material":"dirt","p":{"x":456.0918662380427,"y":-51.474067798379565},"v":{"x":0,"y":0},"static":true,"id":88},{"material":"dirt","p":{"x":503.3323030555621,"y":-105.81426081040456},"v":{"x":0,"y":0},"static":true,"id":89},{"material":"dirt","p":{"x":491.2568056732416,"y":-148.52848590889528},"v":{"x":0,"y":0},"static":true,"id":90},{"material":"dirt","p":{"x":457.7880915971473,"y":-132.15434291192844},"v":{"x":0,"y":0},"static":true,"id":91},{"material":"dirt","p":{"x":516.1613789303228,"y":-131.70091526003137},"v":{"x":0,"y":0},"static":true,"id":92},{"material":"dirt","p":{"x":477.9094619397074,"y":-98.90472716817214},"v":{"x":0,"y":0},"static":true,"id":93},{"material":"dirt","p":{"x":511.11839026305825,"y":-169.0719148239424},"v":{"x":0,"y":0},"static":true,"id":94},{"material":"dirt","p":{"x":554.3906759805977,"y":-213.89827466660643},"v":{"x":0,"y":0},"static":true,"id":95},{"material":"dirt","p":{"x":563.334210745059,"y":-187.96088320759588},"v":{"x":0,"y":0},"static":true,"id":96},{"material":"dirt","p":{"x":539.8659093007445,"y":-235.80417391841763},"v":{"x":0,"y":0},"static":true,"id":97},{"material":"dirt","p":{"x":529.6594617944211,"y":-202.12959005960727},"v":{"x":0,"y":0},"static":true,"id":98},{"material":"dirt","p":{"x":581.7163873994723,"y":-209.85629867759997},"v":{"x":0,"y":0},"static":true,"id":99},{"material":"dirt","p":{"x":567.358026378788,"y":-239.9040830909271},"v":{"x":0,"y":0},"static":true,"id":100},{"material":"dirt","p":{"x":611.4745649080724,"y":-170.67330607529107},"v":{"x":0,"y":0},"static":true,"id":101},{"material":"dirt","p":{"x":609.1910159802064,"y":-203.39115781466785},"v":{"x":0,"y":0},"static":true,"id":102},{"material":"dirt","p":{"x":578.3217026200145,"y":-163.78929951823625},"v":{"x":0,"y":0},"static":true,"id":103},{"material":"dirt","p":{"x":602.7093817722052,"y":-143.53341844761246},"v":{"x":0,"y":0},"static":true,"id":104},{"material":"dirt","p":{"x":639.1875074002892,"y":-166.00810048141227},"v":{"x":0,"y":0},"static":true,"id":105},{"material":"dirt","p":{"x":673.8219359470531,"y":-54.29707453231936},"v":{"x":0,"y":0},"static":true,"id":106},{"material":"dirt","p":{"x":695.0720843980089,"y":-83.52393139358287},"v":{"x":0,"y":0},"static":true,"id":107},{"material":"dirt","p":{"x":694.5200102366507,"y":-119.43741082418387},"v":{"x":0,"y":0},"static":true,"id":108},{"material":"dirt","p":{"x":659.4109494462609,"y":-93.61224230304038},"v":{"x":0,"y":0},"static":true,"id":109},{"material":"dirt","p":{"x":662.1581359971315,"y":-121.62820638175731},"v":{"x":0,"y":0},"static":true,"id":110},{"material":"dirt","p":{"x":649.3296615583822,"y":-67.43320512595903},"v":{"x":0,"y":0},"static":true,"id":111},{"material":"dirt","p":{"x":663.7810251852497,"y":-203.72736536472553},"v":{"x":0,"y":0},"static":true,"id":112},{"material":"dirt","p":{"x":641.6044352017343,"y":-227.65223353303486},"v":{"x":0,"y":0},"static":true,"id":113},{"material":"dirt","p":{"x":679.4983097538352,"y":-179.49361246305966},"v":{"x":0,"y":0},"static":true,"id":114},{"material":"dirt","p":{"x":636.4392625885084,"y":-199.15574055112415},"v":{"x":0,"y":0},"static":true,"id":115},{"material":"dirt","p":{"x":682.2832025634125,"y":-279.6387831296028},"v":{"x":0,"y":0},"static":true,"id":116},{"material":"dirt","p":{"x":674.5944783668965,"y":-229.02666039086893},"v":{"x":0,"y":0},"static":true,"id":117},{"material":"dirt","p":{"x":648.1242512753233,"y":-259.5047987277807},"v":{"x":0,"y":0},"static":true,"id":118},{"material":"dirt","p":{"x":700.57931352593,"y":-254.8583079965428},"v":{"x":0,"y":0},"static":true,"id":119},{"material":"dirt","p":{"x":734.9706686325371,"y":-271.2767655298118},"v":{"x":0,"y":0},"static":true,"id":120},{"material":"dirt","p":{"x":762.8975257473066,"y":-250.3793920975183},"v":{"x":0,"y":0},"static":true,"id":121},{"material":"dirt","p":{"x":741.0382871581241,"y":-297.609318746068},"v":{"x":0,"y":0},"static":true,"id":122},{"material":"dirt","p":{"x":736.9391249399632,"y":-239.15195883698806},"v":{"x":0,"y":0},"static":true,"id":123},{"material":"dirt","p":{"x":772.6050461670384,"y":-293.89579816144004},"v":{"x":0,"y":0},"static":true,"id":124},{"material":"dirt","p":{"x":786.437825509347,"y":-267.5320855549915},"v":{"x":0,"y":0},"static":true,"id":125},{"material":"dirt","p":{"x":764.9038785416633,"y":-320.91924982181024},"v":{"x":0,"y":0},"static":true,"id":126},{"material":"dirt","p":{"x":797.102331998758,"y":-225.74374557089908},"v":{"x":0,"y":0},"static":true,"id":127},{"material":"dirt","p":{"x":811.6860542520881,"y":-253.60935644608838},"v":{"x":0,"y":0},"static":true,"id":128},{"material":"dirt","p":{"x":824.5959579749033,"y":-201.24594295480205},"v":{"x":0,"y":0},"static":true,"id":129},{"material":"dirt","p":{"x":838.6883512036875,"y":-230.15229150549425},"v":{"x":0,"y":0},"static":true,"id":130},{"material":"dirt","p":{"x":792.702255657874,"y":-197.82730874502016},"v":{"x":0,"y":0},"static":true,"id":131},{"material":"dirt","p":{"x":826.3928095586598,"y":-171.19594859224776},"v":{"x":0,"y":0},"static":true,"id":132},{"material":"dirt","p":{"x":801.705375677906,"y":-158.10643525178853},"v":{"x":0,"y":0},"static":true,"id":133},{"material":"dirt","p":{"x":794.4250677125528,"y":-130.77116214680552},"v":{"x":0,"y":0},"static":true,"id":134},{"material":"dirt","p":{"x":793.0279175080359,"y":-94.96058719149858},"v":{"x":0,"y":0},"static":true,"id":135},{"material":"dirt","p":{"x":821.7368215695024,"y":-110.11343046846866},"v":{"x":0,"y":0},"static":true,"id":136},{"material":"dirt","p":{"x":769.2549058049917,"y":-119.3469218351978},"v":{"x":0,"y":0},"static":true,"id":137},{"material":"dirt","p":{"x":766.6380947725847,"y":-90.02295677723487},"v":{"x":0,"y":0},"static":true,"id":138},{"material":"dirt","p":{"x":819.376850573346,"y":-79.73973956225564},"v":{"x":0,"y":0},"static":true,"id":139},{"material":"dirt","p":{"x":795.4835541797802,"y":-60.978835127692946},"v":{"x":0,"y":0},"static":true,"id":140},{"material":"dirt","p":{"x":858.0862845750526,"y":-50.74755154596244},"v":{"x":0,"y":0},"static":true,"id":141},{"material":"dirt","p":{"x":830.7224233429879,"y":3.6649555540683423},"v":{"x":0,"y":0},"static":true,"id":142},{"material":"dirt","p":{"x":874.0017421627417,"y":-10.13577080377911},"v":{"x":0,"y":0},"static":true,"id":143},{"material":"dirt","p":{"x":848.0991946598515,"y":-19.389742989554748},"v":{"x":0,"y":0},"static":true,"id":144},{"material":"dirt","p":{"x":817.8853291124105,"y":-36.3847608282191},"v":{"x":0,"y":0},"static":true,"id":145},{"material":"dirt","p":{"x":865.4318950809538,"y":16.87751217446771},"v":{"x":0,"y":0},"static":true,"id":146},{"material":"dirt","p":{"x":883.5572884147987,"y":-35.6724955057698},"v":{"x":0,"y":0},"static":true,"id":147},{"material":"dirt","p":{"x":906.8952651778236,"y":-8.583949566583897},"v":{"x":0,"y":0},"static":true,"id":148},{"material":"dirt","p":{"x":892.9264710154384,"y":16.401415623959338},"v":{"x":0,"y":0},"static":true,"id":149},{"material":"dirt","p":{"x":732.3758051143959,"y":-206.26825049722822},"v":{"x":0,"y":0},"static":true,"id":150},{"material":"dirt","p":{"x":769.8482316564769,"y":-218.00027606280776},"v":{"x":0,"y":0},"static":true,"id":151},{"material":"dirt","p":{"x":768.4577581835911,"y":-179.6934810915801},"v":{"x":0,"y":0},"static":true,"id":152},{"material":"dirt","p":{"x":666.2562406966463,"y":-153.96703434690892},"v":{"x":0,"y":0},"static":true,"id":153},{"material":"dirt","p":{"x":704.0658791074529,"y":-159.1764368317282},"v":{"x":0,"y":0},"static":true,"id":154},{"material":"dirt","p":{"x":710.2024210998788,"y":-186.98247243233084},"v":{"x":0,"y":0},"static":true,"id":155},{"material":"rocks","p":{"x":622.9841716205701,"y":-90.81143680799983},"v":{"x":0,"y":0},"static":true,"id":156},{"material":"rocks","p":{"x":632.7067280514166,"y":-37.248021008709884},"v":{"x":0,"y":0},"static":true,"id":157},{"material":"rocks","p":{"x":633.758736752905,"y":-119.59106908834576},"v":{"x":0,"y":0},"static":true,"id":158},{"material":"rocks","p":{"x":599.5204796884209,"y":-101.72948882607295},"v":{"x":0,"y":0},"static":true,"id":159},{"material":"rocks","p":{"x":561.1274250978604,"y":-74.05917436698144},"v":{"x":0,"y":0},"static":true,"id":160},{"material":"rocks","p":{"x":549.5196793014184,"y":-102.41835912665044},"v":{"x":0,"y":0},"static":true,"id":161},{"material":"rocks","p":{"x":573.659584030509,"y":-121.54542146039819},"v":{"x":0,"y":0},"static":true,"id":162},{"material":"rocks","p":{"x":544.8183972006664,"y":-128.99008846630966},"v":{"x":0,"y":0},"static":true,"id":163},{"material":"rocks","p":{"x":532.5353543385863,"y":-76.03947262697613},"v":{"x":0,"y":0},"static":true,"id":164},{"material":"rocks","p":{"x":545.4436719790101,"y":-50.555521911814935},"v":{"x":0,"y":0},"static":true,"id":165},{"material":"rocks","p":{"x":516.7241542302072,"y":-53.80047138651355},"v":{"x":0,"y":0},"static":true,"id":166},{"material":"rocks","p":{"x":500.28378844819963,"y":-12.789341662850347},"v":{"x":0,"y":0},"static":true,"id":167},{"material":"rocks","p":{"x":548.1427804678679,"y":-19.476397073667613},"v":{"x":0,"y":0},"static":true,"id":168},{"material":"rocks","p":{"x":482.30062408652157,"y":-34.72255318782118},"v":{"x":0,"y":0},"static":true,"id":169},{"material":"rocks","p":{"x":536.5445474367589,"y":6.438379984896073},"v":{"x":0,"y":0},"static":true,"id":170},{"material":"rocks","p":{"x":485.5959669984877,"y":16.387926067109674},"v":{"x":0,"y":0},"static":true,"id":171},{"material":"rocks","p":{"x":429.23568229936063,"y":4.249983110349149},"v":{"x":0,"y":0},"static":true,"id":172},{"material":"rocks","p":{"x":456.7636717921123,"y":-22.118633336503535},"v":{"x":0,"y":0},"static":true,"id":173},{"material":"rocks","p":{"x":461.5131309097633,"y":35.632801154512435},"v":{"x":0,"y":0},"static":true,"id":174},{"material":"rocks","p":{"x":459.99234092701226,"y":9.129874448952478},"v":{"x":0,"y":0},"static":true,"id":175},{"material":"rocks","p":{"x":588.3558828411624,"y":-24.923138937910153},"v":{"x":0,"y":0},"static":true,"id":176},{"material":"rocks","p":{"x":572.2020553862676,"y":14.35072209406917},"v":{"x":0,"y":0},"static":true,"id":177},{"material":"rocks","p":{"x":627.53838729579,"y":-6.906359615732981},"v":{"x":0,"y":0},"static":true,"id":178},{"material":"rocks","p":{"x":612.7210348220542,"y":17.10160502977942},"v":{"x":0,"y":0},"static":true,"id":179},{"material":"rocks","p":{"x":649.0008204150945,"y":12.980169060681419},"v":{"x":0,"y":0},"static":true,"id":180},{"material":"rocks","p":{"x":656.2192262271419,"y":-12.998150661546333},"v":{"x":0,"y":0},"static":true,"id":181},{"material":"rocks","p":{"x":688.9700072258711,"y":-5.7270718223086305},"v":{"x":0,"y":0},"static":true,"id":182},{"material":"rocks","p":{"x":675.5925250183791,"y":27.92253700861272},"v":{"x":0,"y":0},"static":true,"id":183},{"material":"rocks","p":{"x":722.0312319751829,"y":-21.01528102578459},"v":{"x":0,"y":0},"static":true,"id":184},{"material":"rocks","p":{"x":707.1468374775723,"y":25.593840165530764},"v":{"x":0,"y":0},"static":true,"id":185},{"material":"rocks","p":{"x":736.7432211684063,"y":8.337642172818505},"v":{"x":0,"y":0},"static":true,"id":186},{"material":"rocks","p":{"x":758.5149075519294,"y":-9.990293635403532},"v":{"x":0,"y":0},"static":true,"id":187},{"material":"rocks","p":{"x":728.06718913652,"y":-72.4349332270508},"v":{"x":0,"y":0},"static":true,"id":188},{"material":"rocks","p":{"x":762.884892004542,"y":-61.73742582977911},"v":{"x":0,"y":0},"static":true,"id":189},{"material":"rocks","p":{"x":742.1423953212798,"y":-43.51774698545387},"v":{"x":0,"y":0},"static":true,"id":190},{"material":"rocks","p":{"x":740.7190140020102,"y":-104.91414556888094},"v":{"x":0,"y":0},"static":true,"id":191},{"material":"rocks","p":{"x":714.6797949345782,"y":-49.118620347726846},"v":{"x":0,"y":0},"static":true,"id":192},{"material":"rocks","p":{"x":725.7129402188584,"y":-131.88099544544605},"v":{"x":0,"y":0},"static":true,"id":193},{"material":"rocks","p":{"x":759.6313686445355,"y":-146.1549481483578},"v":{"x":0,"y":0},"static":true,"id":194},{"material":"rocks","p":{"x":736.9245917033404,"y":-166.99576186592788},"v":{"x":0,"y":0},"static":true,"id":195},{"material":"rocks","p":{"x":771.809547864832,"y":-34.94223798364601},"v":{"x":0,"y":0},"static":true,"id":196},{"material":"rocks","p":{"x":589.9490822292864,"y":-55.866379058292864},"v":{"x":0,"y":0},"static":true,"id":197},{"material":"rocks","p":{"x":805.4652477996424,"y":18.486957596034586},"v":{"x":0,"y":0},"static":true,"id":198},{"material":"rocks","p":{"x":779.9775017509237,"y":13.81197047361809},"v":{"x":0,"y":0},"static":true,"id":199},{"material":"rocks","p":{"x":803.0890496475622,"y":-9.461818412526668},"v":{"x":0,"y":0},"static":true,"id":200},{"material":"rocks","p":{"x":840.4955794131383,"y":30.58012434991656},"v":{"x":0,"y":0},"static":true,"id":201},{"material":"sand","p":{"x":877,"y":-100.15373961218836},"v":{"x":0,"y":0},"static":true,"id":202},{"material":"sand","p":{"x":900,"y":-68.1094182825484},"v":{"x":0,"y":0},"static":true,"id":203},{"material":"sand","p":{"x":922,"y":-47.08033240997224},"v":{"x":0,"y":0},"static":true,"id":204},{"material":"sand","p":{"x":975,"y":-20.044321329639843},"v":{"x":0,"y":0},"static":true,"id":205},{"material":"sand","p":{"x":1008,"y":-13.034626038781084},"v":{"x":0,"y":0},"static":true,"id":206},{"material":"sand","p":{"x":826,"y":-141.21191135734068},"v":{"x":0,"y":0},"static":true,"id":207},{"material":"sand","p":{"x":861,"y":-127.19252077562317},"v":{"x":0,"y":0},"static":true,"id":208},{"material":"sand","p":{"x":913,"y":-98.15235457063704},"v":{"x":0,"y":0},"static":true,"id":209},{"material":"sand","p":{"x":867.3523139208555,"y":-171.46513517113738},"v":{"x":0,"y":0},"static":true,"id":210},{"material":"sand","p":{"x":883.6417940706015,"y":-144.2040016132553},"v":{"x":0,"y":0},"static":true,"id":211},{"material":"sand","p":{"x":910.9176457170397,"y":-127.71750865727813},"v":{"x":0,"y":0},"static":true,"id":212},{"material":"sand","p":{"x":849.2632860997692,"y":-98.42872896175982},"v":{"x":0,"y":0},"static":true,"id":213},{"material":"sand","p":{"x":949.916012333706,"y":-87.2383848252058},"v":{"x":0,"y":0},"static":true,"id":214},{"material":"sand","p":{"x":955.7930163387209,"y":-50.327313926450074},"v":{"x":0,"y":0},"static":true,"id":215},{"material":"sand","p":{"x":976.549031435512,"y":-74.763334656903},"v":{"x":0,"y":0},"static":true,"id":216},{"material":"sand","p":{"x":938.0069152805954,"y":-20.817343039043294},"v":{"x":0,"y":0},"static":true,"id":217},{"material":"sand","p":{"x":989.5491797588766,"y":-46.0243005688867},"v":{"x":0,"y":0},"static":true,"id":218},{"material":"sand","p":{"x":987.2472640480846,"y":5.36895493639588},"v":{"x":0,"y":0},"static":true,"id":219},{"material":"sand","p":{"x":1017.8496695067734,"y":-45.009927936476174},"v":{"x":0,"y":0},"static":true,"id":220},{"material":"sand","p":{"x":1038.675354797393,"y":-19.166628310841247},"v":{"x":0,"y":0},"static":true,"id":221},{"material":"sand","p":{"x":1056.5875082956627,"y":-39.918661797726145},"v":{"x":0,"y":0},"static":true,"id":222},{"material":"sand","p":{"x":1033.368304132484,"y":14.321896569496403},"v":{"x":0,"y":0},"static":true,"id":223},{"material":"sand","p":{"x":1072.4865146800876,"y":-17.535807578200092},"v":{"x":0,"y":0},"static":true,"id":224},{"material":"sand","p":{"x":1061.8267267551273,"y":16.567825302252118},"v":{"x":0,"y":0},"static":true,"id":225},{"material":"sand","p":{"x":1099.464100357145,"y":-29.056516420248272},"v":{"x":0,"y":0},"static":true,"id":226},{"material":"sand","p":{"x":1097.1903503267094,"y":-0.7094473514364381},"v":{"x":0,"y":0},"static":true,"id":227},{"material":"sand","p":{"x":1122.6936676604673,"y":-12.342825316821404},"v":{"x":0,"y":0},"static":true,"id":228},{"material":"sand","p":{"x":1114.309364314191,"y":21.886072902088927},"v":{"x":0,"y":0},"static":true,"id":229},{"material":"sand","p":{"x":1126.1689772754908,"y":-40.59347131180664},"v":{"x":0,"y":0},"static":true,"id":230},{"material":"sand","p":{"x":1150.6996508138254,"y":-9.243669399795522},"v":{"x":0,"y":0},"static":true,"id":231},{"material":"sand","p":{"x":1145.6757950410247,"y":22.101388906324814},"v":{"x":0,"y":0},"static":true,"id":232},{"material":"sand","p":{"x":1158.8021706882864,"y":-34.3298723891279},"v":{"x":0,"y":0},"static":true,"id":233},{"material":"sand","p":{"x":1172.473381338641,"y":11.015485700454747},"v":{"x":0,"y":0},"static":true,"id":234},{"material":"sand","p":{"x":1185.68398981262,"y":-14.372964291598464},"v":{"x":0,"y":0},"static":true,"id":235},{"material":"sand","p":{"x":1209.264890378341,"y":0.538417636690383},"v":{"x":0,"y":0},"static":true,"id":236},{"material":"sand","p":{"x":1190.6374092120677,"y":-40.2717276660627},"v":{"x":0,"y":0},"static":true,"id":237},{"material":"sand","p":{"x":1215.3677939865738,"y":-25.160296379431088},"v":{"x":0,"y":0},"static":true,"id":238},{"material":"sand","p":{"x":1243.5726271290332,"y":-28.0610500508119},"v":{"x":0,"y":0},"static":true,"id":239},{"material":"sand","p":{"x":1236.1169979516417,"y":15.236432311205135},"v":{"x":0,"y":0},"static":true,"id":240},{"material":"sand","p":{"x":1264.2551273582503,"y":-1.1504853682494058},"v":{"x":0,"y":0},"static":true,"id":241},{"material":"sand","p":{"x":1272.3842510962859,"y":-29.65700617312109},"v":{"x":0,"y":0},"static":true,"id":242},{"material":"sand","p":{"x":1262.2846676148474,"y":27.704480657627528},"v":{"x":0,"y":0},"static":true,"id":243},{"material":"sand","p":{"x":1301.1535900309682,"y":-7.320199698867555},"v":{"x":0,"y":0},"static":true,"id":244},{"material":"sand","p":{"x":1297.5819082725793,"y":22.32063891672874},"v":{"x":0,"y":0},"static":true,"id":245},{"material":"sand","p":{"x":1302.6147450944409,"y":-33.4008931691817},"v":{"x":0,"y":0},"static":true,"id":246},{"material":"sand","p":{"x":1327.6234129043296,"y":-15.974354837708916},"v":{"x":0,"y":0},"static":true,"id":247},{"material":"sand","p":{"x":1325.998420290649,"y":16.55361960397738},"v":{"x":0,"y":0},"static":true,"id":248},{"material":"sand","p":{"x":1352.4464548090473,"y":4.060674257034748},"v":{"x":0,"y":0},"static":true,"id":249},{"material":"sand","p":{"x":1350.3200136870146,"y":-31.266066377592892},"v":{"x":0,"y":0},"static":true,"id":250},{"material":"sand","p":{"x":1350.9090655744076,"y":31.607885597740733},"v":{"x":0,"y":0},"static":true,"id":251},{"material":"sand","p":{"x":1380.761766731739,"y":-4.29362479364363},"v":{"x":0,"y":0},"static":true,"id":252},{"material":"sand","p":{"x":1390.887936681509,"y":26.49040911397242},"v":{"x":0,"y":0},"static":true,"id":253},{"material":"sand","p":{"x":1380.8099695518613,"y":-33.220750589349336},"v":{"x":0,"y":0},"static":true,"id":254},{"material":"sand","p":{"x":1410.7738582156599,"y":0.08650125151928023},"v":{"x":0,"y":0},"static":true,"id":255},{"material":"sand","p":{"x":1438.5053531769663,"y":17.287699089037346},"v":{"x":0,"y":0},"static":true,"id":256},{"material":"sand","p":{"x":1414.0782640939578,"y":-26.71400715631796},"v":{"x":0,"y":0},"static":true,"id":257},{"material":"sand","p":{"x":1439.649057969451,"y":-14.895506192346943},"v":{"x":0,"y":0},"static":true,"id":258},{"material":"sand","p":{"x":1417.4380193306133,"y":37.07682980841594},"v":{"x":0,"y":0},"static":true,"id":259},{"material":"sand","p":{"x":1466.8353902362287,"y":9.386002309272158},"v":{"x":0,"y":0},"static":true,"id":260},{"material":"sand","p":{"x":1464.2770121442154,"y":37.93892477623547},"v":{"x":0,"y":0},"static":true,"id":261},{"material":"sand","p":{"x":1488.9052075101063,"y":-7.906317831171805},"v":{"x":0,"y":0},"static":true,"id":262},{"material":"sand","p":{"x":1493.9038852639496,"y":34.49440785392687},"v":{"x":0,"y":0},"static":true,"id":263},{"material":"sand","p":{"x":1515.3215932082385,"y":5.36514677933917},"v":{"x":0,"y":0},"static":true,"id":264},{"material":"sand","p":{"x":1516.349387289025,"y":-23.24265855469241},"v":{"x":0,"y":0},"static":true,"id":265},{"material":"sand","p":{"x":1541.2063508499414,"y":21.45852809760288},"v":{"x":0,"y":0},"static":true,"id":266},{"material":"sand","p":{"x":1542.2930148141459,"y":-11.100302501697684},"v":{"x":0,"y":0},"static":true,"id":267},{"material":"sand","p":{"x":1566.9779214579612,"y":6.936976649682379},"v":{"x":0,"y":0},"static":true,"id":268},{"material":"sand","p":{"x":1565.0794302308932,"y":41.06120470527128},"v":{"x":0,"y":0},"static":true,"id":269},{"material":"sand","p":{"x":1592.8574098823592,"y":20.183986571540117},"v":{"x":0,"y":0},"static":true,"id":270},{"material":"sand","p":{"x":1586.6116733429953,"y":-10.761940316335767},"v":{"x":0,"y":0},"static":true,"id":271},{"material":"sand","p":{"x":1617,"y":-21.044321329639843},"v":{"x":0,"y":0},"static":true,"id":272},{"material":"rocks","p":{"x":1926.559049911797,"y":-8.502218081729325},"v":{"x":0,"y":0},"static":true,"id":273},{"material":"rocks","p":{"x":1894.990714081563,"y":-47.17836753383449},"v":{"x":0,"y":0},"static":true,"id":274},{"material":"rocks","p":{"x":1871.137743816711,"y":-32.29947714612058},"v":{"x":0,"y":0},"static":true,"id":275},{"material":"rocks","p":{"x":1893.21808530204,"y":-9.41096181061289},"v":{"x":0,"y":0},"static":true,"id":276},{"material":"rocks","p":{"x":1866.0166868017986,"y":1.7389651796577255},"v":{"x":0,"y":0},"static":true,"id":277},{"material":"rocks","p":{"x":1897.38183242362,"y":19.953992873316793},"v":{"x":0,"y":0},"static":true,"id":278},{"material":"rocks","p":{"x":1936.836599810049,"y":-34.67215204048489},"v":{"x":0,"y":0},"static":true,"id":279},{"material":"rocks","p":{"x":1930.7124742940068,"y":20.14830890022631},"v":{"x":0,"y":0},"static":true,"id":280},{"material":"rocks","p":{"x":1965.575336090289,"y":-15.246211366725333},"v":{"x":0,"y":0},"static":true,"id":281},{"material":"rocks","p":{"x":1839.7327254805714,"y":-28.33058441379501},"v":{"x":0,"y":0},"static":true,"id":282},{"material":"rocks","p":{"x":1798.482820091769,"y":-9.210248169953502},"v":{"x":0,"y":0},"static":true,"id":283},{"material":"rocks","p":{"x":1758.7870813626796,"y":24.806686025579893},"v":{"x":0,"y":0},"static":true,"id":284},{"material":"rocks","p":{"x":1754.263061576523,"y":-14.3202681387761},"v":{"x":0,"y":0},"static":true,"id":285},{"material":"rocks","p":{"x":1786.3119987854734,"y":18.695557215718054},"v":{"x":0,"y":0},"static":true,"id":286},{"material":"rocks","p":{"x":1733.487753749825,"y":4.169401932974779},"v":{"x":0,"y":0},"static":true,"id":287},{"material":"rocks","p":{"x":1778.9653720622882,"y":-30.531806764657176},"v":{"x":0,"y":0},"static":true,"id":288},{"material":"rocks","p":{"x":1822.3949220459908,"y":16.000330384356403},"v":{"x":0,"y":0},"static":true,"id":289},{"material":"rocks","p":{"x":1806.3652340071276,"y":-35.24408856274715},"v":{"x":0,"y":0},"static":true,"id":290},{"material":"rocks","p":{"x":1849.3813649201766,"y":25.734245945895623},"v":{"x":0,"y":0},"static":true,"id":291},{"material":"rocks","p":{"x":1970.6776387309656,"y":25.769119171737884},"v":{"x":0,"y":0},"static":true,"id":292},{"material":"rocks","p":{"x":1992.6591491457075,"y":-1.697462334916736},"v":{"x":0,"y":0},"static":true,"id":293},{"material":"rocks","p":{"x":1993.1934669893235,"y":-32.55465096227272},"v":{"x":0,"y":0},"static":true,"id":294},{"material":"rocks","p":{"x":1957.7624491332099,"y":-53.170634652678814},"v":{"x":0,"y":0},"static":true,"id":295},{"material":"rocks","p":{"x":1930.0875214738771,"y":-69.9078942518629},"v":{"x":0,"y":0},"static":true,"id":296},{"material":"rocks","p":{"x":1866.1693059140816,"y":-75.23258572296231},"v":{"x":0,"y":0},"static":true,"id":297},{"material":"rocks","p":{"x":1894.6808382254094,"y":-79.8302307961601},"v":{"x":0,"y":0},"static":true,"id":298},{"material":"rocks","p":{"x":1837.8908278560266,"y":-82.33307477047299},"v":{"x":0,"y":0},"static":true,"id":299},{"material":"rocks","p":{"x":1821.4877082100138,"y":-57.58030013331927},"v":{"x":0,"y":0},"static":true,"id":300},{"material":"rocks","p":{"x":1796.5324356518686,"y":-69.06472576373972},"v":{"x":0,"y":0},"static":true,"id":301},{"material":"dirt","p":{"x":1665.6655962951481,"y":-40.11755653873979},"v":{"x":0,"y":0},"static":true,"id":302},{"material":"dirt","p":{"x":1676.0871265968308,"y":5.8352034051627015},"v":{"x":0,"y":0},"static":true,"id":303},{"material":"dirt","p":{"x":1701.74836826697,"y":-51.35093976029157},"v":{"x":0,"y":0},"static":true,"id":304},{"material":"dirt","p":{"x":1702.0127899702638,"y":-11.578833678112915},"v":{"x":0,"y":0},"static":true,"id":305},{"material":"dirt","p":{"x":1650.5395609419793,"y":-6.843949171982672},"v":{"x":0,"y":0},"static":true,"id":306},{"material":"dirt","p":{"x":1704.6083223950118,"y":16.885408262608735},"v":{"x":0,"y":0},"static":true,"id":307},{"material":"dirt","p":{"x":1721.6865637339652,"y":-32.490383038333334},"v":{"x":0,"y":0},"static":true,"id":308},{"material":"dirt","p":{"x":1735.62183387205,"y":-57.78204152057424},"v":{"x":0,"y":0},"static":true,"id":309},{"material":"dirt","p":{"x":1764.5226794127375,"y":-60.51840452888041},"v":{"x":0,"y":0},"static":true,"id":310},{"material":"dirt","p":{"x":1747.7806108845398,"y":-86.0901905983851},"v":{"x":0,"y":0},"static":true,"id":311},{"material":"dirt","p":{"x":1793.2898252243176,"y":-99.76834721334649},"v":{"x":0,"y":0},"static":true,"id":312},{"material":"dirt","p":{"x":1821.7556468769908,"y":-111.69088622173831},"v":{"x":0,"y":0},"static":true,"id":313},{"material":"dirt","p":{"x":1851.7637223722413,"y":-107.27917367979421},"v":{"x":0,"y":0},"static":true,"id":314},{"material":"dirt","p":{"x":1878.7434199610725,"y":-101.71737944807103},"v":{"x":0,"y":0},"static":true,"id":315},{"material":"dirt","p":{"x":1910.8873105347157,"y":-101.51233051242843},"v":{"x":0,"y":0},"static":true,"id":316},{"material":"dirt","p":{"x":1948.3397796573117,"y":-92.98786480417289},"v":{"x":0,"y":0},"static":true,"id":317},{"material":"dirt","p":{"x":1972.985897014849,"y":-76.05632016659445},"v":{"x":0,"y":0},"static":true,"id":318},{"material":"dirt","p":{"x":2002.273735113442,"y":-62.87998676295399},"v":{"x":0,"y":0},"static":true,"id":319},{"material":"dirt","p":{"x":2022.4420212144032,"y":-23.817354837659423},"v":{"x":0,"y":0},"static":true,"id":320},{"material":"dirt","p":{"x":2038.136483383365,"y":-45.34668328406906},"v":{"x":0,"y":0},"static":true,"id":321},{"material":"dirt","p":{"x":2030.8491661082953,"y":6.156801456977746},"v":{"x":0,"y":0},"static":true,"id":322},{"material":"dirt","p":{"x":2052.1591465249658,"y":-10.743026435759589},"v":{"x":0,"y":0},"static":true,"id":323},{"material":"dirt","p":{"x":2067.0904469098896,"y":-32.27947987809796},"v":{"x":0,"y":0},"static":true,"id":324},{"material":"dirt","p":{"x":2077.2825164003298,"y":1.6607817459175749},"v":{"x":0,"y":0},"static":true,"id":325},{"material":"dirt","p":{"x":2058.1742308465764,"y":22.725019149794434},"v":{"x":0,"y":0},"static":true,"id":326},{"material":"dirt","p":{"x":2103.03660065867,"y":22.366710735214156},"v":{"x":0,"y":0},"static":true,"id":327},{"material":"dirt","p":{"x":2102.4503308720887,"y":-9.709903308461207},"v":{"x":0,"y":0},"static":true,"id":328},{"material":"dirt","p":{"x":2085.2112548667938,"y":42.942953794185996},"v":{"x":0,"y":0},"static":true,"id":329},{"material":"dirt","p":{"x":2028.9465504698455,"y":-75.34168743267855},"v":{"x":0,"y":0},"static":true,"id":330},{"material":"dirt","p":{"x":1996.8634280022234,"y":-90.80399860700948},"v":{"x":0,"y":0},"static":true,"id":331},{"material":"dirt","p":{"x":1887.274368791841,"y":-129.60509998295868},"v":{"x":0,"y":0},"static":true,"id":332},{"material":"dirt","p":{"x":1846.8324780296534,"y":-133.54678976037883},"v":{"x":0,"y":0},"static":true,"id":333},{"material":"dirt","p":{"x":1768.395758238621,"y":-114.16155145657592},"v":{"x":0,"y":0},"static":true,"id":334},{"material":"dirt","p":{"x":1790.5850874576718,"y":-131.4103148445987},"v":{"x":0,"y":0},"static":true,"id":335},{"material":"dirt","p":{"x":1731.812960062176,"y":-108.54649180688807},"v":{"x":0,"y":0},"static":true,"id":336},{"material":"dirt","p":{"x":1719.1828238721937,"y":-84.28963051940934},"v":{"x":0,"y":0},"static":true,"id":337},{"material":"sand","p":{"x":1567.2937449403107,"y":-32.453708332258884},"v":{"x":0,"y":0},"static":true,"id":338},{"material":"sand","p":{"x":1600.3462958885357,"y":-49.49081433866513},"v":{"x":0,"y":0},"static":true,"id":339},{"material":"sand","p":{"x":1575.2780050346628,"y":-71.19454466108573},"v":{"x":0,"y":0},"static":true,"id":340},{"material":"sand","p":{"x":1547.619893167168,"y":-54.43272942979229},"v":{"x":0,"y":0},"static":true,"id":341},{"material":"sand","p":{"x":1604.2012209398672,"y":-76.92614368581496},"v":{"x":0,"y":0},"static":true,"id":342},{"material":"sand","p":{"x":1626.072313615121,"y":-59.61210359500353},"v":{"x":0,"y":0},"static":true,"id":343},{"material":"sand","p":{"x":1643.5447426727042,"y":-81.1344027861802},"v":{"x":0,"y":0},"static":true,"id":344},{"material":"sand","p":{"x":1627.1525619896129,"y":-106.08803488914737},"v":{"x":0,"y":0},"static":true,"id":345},{"material":"sand","p":{"x":1661.2679947987199,"y":-100.70656498307176},"v":{"x":0,"y":0},"static":true,"id":346},{"material":"sand","p":{"x":1673.8492783810943,"y":-67.11406023120321},"v":{"x":0,"y":0},"static":true,"id":347},{"material":"sand","p":{"x":1689.8897696556523,"y":-98.8585343054234},"v":{"x":0,"y":0},"static":true,"id":348},{"material":"sand","p":{"x":1683.4968018084764,"y":-124.99331271957726},"v":{"x":0,"y":0},"static":true,"id":349},{"material":"sand","p":{"x":1718.252552605234,"y":-133.06859173317923},"v":{"x":0,"y":0},"static":true,"id":350},{"material":"sand","p":{"x":1746.5854627918452,"y":-131.95877602788255},"v":{"x":0,"y":0},"static":true,"id":351},{"material":"rocks","p":{"x":1867.2433949159458,"y":-158.80852708005318},"v":{"x":0,"y":0},"static":true,"id":352},{"material":"rocks","p":{"x":1838.032982133329,"y":-171.12902224593768},"v":{"x":0,"y":0},"static":true,"id":353},{"material":"rocks","p":{"x":1808.3370279707015,"y":-160.67003203713307},"v":{"x":0,"y":0},"static":true,"id":354},{"material":"rocks","p":{"x":1899.5741114988923,"y":-162.4588462202255},"v":{"x":0,"y":0},"static":true,"id":355},{"material":"rocks","p":{"x":1914.8893790589646,"y":-134.91922178335085},"v":{"x":0,"y":0},"static":true,"id":356},{"material":"rocks","p":{"x":1950.1828124020249,"y":-140.1915193277557},"v":{"x":0,"y":0},"static":true,"id":357},{"material":"rocks","p":{"x":1934.0899093542248,"y":-170.93510021857514},"v":{"x":0,"y":0},"static":true,"id":358},{"material":"rocks","p":{"x":1977.1976170158014,"y":-147.94596798079976},"v":{"x":0,"y":0},"static":true,"id":359},{"material":"rocks","p":{"x":1971.102038868703,"y":-109.81071743375287},"v":{"x":0,"y":0},"static":true,"id":360},{"material":"rocks","p":{"x":2000.3869900489226,"y":-118.0389400448422},"v":{"x":0,"y":0},"static":true,"id":361},{"material":"rocks","p":{"x":2028.7070872019976,"y":-121.04360523228877},"v":{"x":0,"y":0},"static":true,"id":362},{"material":"rocks","p":{"x":1899.669439884834,"y":-194.17295082388932},"v":{"x":0,"y":0},"static":true,"id":363},{"material":"rocks","p":{"x":1874.0322168739513,"y":-189.7391077944585},"v":{"x":0,"y":0},"static":true,"id":364},{"material":"rocks","p":{"x":1872.291384066455,"y":-220.7322265424474},"v":{"x":0,"y":0},"static":true,"id":365},{"material":"rocks","p":{"x":1847.4703122833744,"y":-205.61546335860032},"v":{"x":0,"y":0},"static":true,"id":366},{"material":"rocks","p":{"x":1828.5102518312633,"y":-223.85368494287525},"v":{"x":0,"y":0},"static":true,"id":367},{"material":"rocks","p":{"x":1818.2572950972244,"y":-194.05585438076798},"v":{"x":0,"y":0},"static":true,"id":368},{"material":"rocks","p":{"x":1851.6578052509576,"y":-237.8223066720879},"v":{"x":0,"y":0},"static":true,"id":369},{"material":"rocks","p":{"x":1809.2066576415673,"y":-244.7036997775374},"v":{"x":0,"y":0},"static":true,"id":370},{"material":"rocks","p":{"x":1833.0933755431324,"y":-259.14016688701764},"v":{"x":0,"y":0},"static":true,"id":371},{"material":"rocks","p":{"x":1856.9126287559047,"y":-274.6682347866894},"v":{"x":0,"y":0},"static":true,"id":372},{"material":"rocks","p":{"x":1832.461165114306,"y":-286.27023097582753},"v":{"x":0,"y":0},"static":true,"id":373},{"material":"rocks","p":{"x":1808.564659637399,"y":-272.5755770158827},"v":{"x":0,"y":0},"static":true,"id":374},{"material":"rocks","p":{"x":1916.2286423053592,"y":-218.18534457778236},"v":{"x":0,"y":0},"static":true,"id":375},{"material":"rocks","p":{"x":1936.8721382888034,"y":-198.1812090160263},"v":{"x":0,"y":0},"static":true,"id":376},{"material":"rocks","p":{"x":1781.5589079139754,"y":-165.1432549986663},"v":{"x":0,"y":0},"static":true,"id":377},{"material":"rocks","p":{"x":1800.1332386229187,"y":-216.52590145715288},"v":{"x":0,"y":0},"static":true,"id":378},{"material":"rocks","p":{"x":1782.596771715209,"y":-194.24938761161434},"v":{"x":0,"y":0},"static":true,"id":379},{"material":"rocks","p":{"x":1777.1578127350658,"y":-235.57356079083212},"v":{"x":0,"y":0},"static":true,"id":380},{"material":"rocks","p":{"x":1757.2946046311408,"y":-177.28406477701992},"v":{"x":0,"y":0},"static":true,"id":381},{"material":"water","p":{"x":39,"y":-201.29501385041544},"v":{"x":0,"y":0},"static":false,"id":382},{"material":"water","p":{"x":72,"y":-183.270083102493},"v":{"x":0,"y":0},"static":false,"id":383},{"material":"water","p":{"x":110,"y":-167.24792243767308},"v":{"x":0,"y":0},"static":false,"id":384},{"material":"water","p":{"x":202,"y":-148.22022160664812},"v":{"x":0,"y":0},"static":false,"id":385},{"material":"water","p":{"x":240,"y":-148.22160664819944},"v":{"x":0,"y":0},"static":false,"id":386},{"material":"water","p":{"x":330,"y":-205.30055401662042},"v":{"x":0,"y":0},"static":false,"id":387},{"material":"water","p":{"x":360,"y":-213.31163434903044},"v":{"x":0,"y":0},"static":false,"id":388},{"material":"water","p":{"x":420,"y":-231.33656509695288},"v":{"x":0,"y":0},"static":false,"id":389},{"material":"water","p":{"x":457,"y":-247.3587257617728},"v":{"x":0,"y":0},"static":false,"id":390},{"material":"water","p":{"x":498,"y":-291.41828254847644},"v":{"x":0,"y":0},"static":false,"id":391},{"material":"water","p":{"x":549,"y":-331.4750692520775},"v":{"x":0,"y":0},"static":false,"id":392},{"material":"water","p":{"x":573,"y":-345.4930747922437},"v":{"x":0,"y":0},"static":false,"id":393},{"material":"water","p":{"x":600,"y":-354.5069252077562},"v":{"x":0,"y":0},"static":false,"id":394},{"material":"water","p":{"x":898,"y":-221.3227146814404},"v":{"x":0,"y":0},"static":false,"id":395},{"material":"water","p":{"x":929,"y":-191.28116343490296},"v":{"x":0,"y":0},"static":false,"id":396},{"material":"water","p":{"x":961,"y":-171.2520775623268},"v":{"x":0,"y":0},"static":false,"id":397},{"material":"water","p":{"x":1006,"y":-154.22991689750688},"v":{"x":0,"y":0},"static":false,"id":398},{"material":"water","p":{"x":1052,"y":-145.2160664819944},"v":{"x":0,"y":0},"static":false,"id":399},{"material":"water","p":{"x":1083,"y":-143.21329639889188},"v":{"x":0,"y":0},"static":false,"id":400},{"material":"water","p":{"x":1113,"y":-142.21191135734068},"v":{"x":0,"y":0},"static":false,"id":401},{"material":"water","p":{"x":1143,"y":-142.21191135734068},"v":{"x":0,"y":0},"static":false,"id":402},{"material":"water","p":{"x":1174,"y":-142.21191135734068},"v":{"x":0,"y":0},"static":false,"id":403},{"material":"water","p":{"x":1206,"y":-141.21052631578937},"v":{"x":0,"y":0},"static":false,"id":404},{"material":"water","p":{"x":1236,"y":-138.20775623268696},"v":{"x":0,"y":0},"static":false,"id":405},{"material":"water","p":{"x":1275,"y":-138.20637119113564},"v":{"x":0,"y":0},"static":false,"id":406},{"material":"water","p":{"x":1317,"y":-143.21329639889188},"v":{"x":0,"y":0},"static":false,"id":407},{"material":"water","p":{"x":1353,"y":-150.22437673130185},"v":{"x":0,"y":0},"static":false,"id":408},{"material":"water","p":{"x":1390,"y":-155.23130193905808},"v":{"x":0,"y":0},"static":false,"id":409},{"material":"water","p":{"x":1424,"y":-160.23684210526312},"v":{"x":0,"y":0},"static":false,"id":410},{"material":"water","p":{"x":1474,"y":-167.24653739612188},"v":{"x":0,"y":0},"static":false,"id":411},{"material":"water","p":{"x":1502,"y":-167.24792243767308},"v":{"x":0,"y":0},"static":false,"id":412},{"material":"water","p":{"x":1538,"y":-168.24792243767308},"v":{"x":0,"y":0},"static":false,"id":413},{"material":"water","p":{"x":1581,"y":-165.24515235457056},"v":{"x":0,"y":0},"static":false,"id":414},{"material":"water","p":{"x":1647,"y":-171.2520775623268},"v":{"x":0,"y":0},"static":false,"id":415},{"material":"water","p":{"x":1679,"y":-177.26038781163425},"v":{"x":0,"y":0},"static":false,"id":416},{"material":"water","p":{"x":1722,"y":-179.26454293628808},"v":{"x":0,"y":0},"static":false,"id":417},{"material":"water","p":{"x":1657,"y":-196.2880886426592},"v":{"x":0,"y":0},"static":false,"id":418},{"material":"water","p":{"x":1514,"y":-200.29224376731298},"v":{"x":0,"y":0},"static":false,"id":419},{"material":"water","p":{"x":1446,"y":-205.29916897506922},"v":{"x":0,"y":0},"static":false,"id":420},{"material":"water","p":{"x":1382,"y":-210.30609418282546},"v":{"x":0,"y":0},"static":false,"id":421},{"material":"water","p":{"x":1332,"y":-213.31024930747918},"v":{"x":0,"y":0},"static":false,"id":422},{"material":"water","p":{"x":1279,"y":-215.31301939058164},"v":{"x":0,"y":0},"static":false,"id":423},{"material":"water","p":{"x":1236,"y":-221.32132963988914},"v":{"x":0,"y":0},"static":false,"id":424},{"material":"water","p":{"x":1189,"y":-221.32132963988914},"v":{"x":0,"y":0},"static":false,"id":425},{"material":"water","p":{"x":1137,"y":-216.3144044321329},"v":{"x":0,"y":0},"static":false,"id":426},{"material":"water","p":{"x":1091,"y":-210.30609418282546},"v":{"x":0,"y":0},"static":false,"id":427},{"material":"water","p":{"x":1044,"y":-205.30055401662042},"v":{"x":0,"y":0},"static":false,"id":428},{"material":"water","p":{"x":1002,"y":-208.3047091412742},"v":{"x":0,"y":0},"static":false,"id":429},{"material":"water","p":{"x":975,"y":-211.30886426592792},"v":{"x":0,"y":0},"static":false,"id":430},{"material":"water","p":{"x":1408,"y":-221.32132963988914},"v":{"x":0,"y":0},"static":false,"id":431},{"material":"water","p":{"x":1495,"y":-232.33795013850408},"v":{"x":0,"y":0},"static":false,"id":432},{"material":"water","p":{"x":1528,"y":-240.34764542936284},"v":{"x":0,"y":0},"static":false,"id":433},{"material":"water","p":{"x":1564,"y":-242.35180055401656},"v":{"x":0,"y":0},"static":false,"id":434},{"material":"water","p":{"x":1614,"y":-243.35180055401656},"v":{"x":0,"y":0},"static":false,"id":435},{"material":"water","p":{"x":1641,"y":-243.35318559556782},"v":{"x":0,"y":0},"static":false,"id":436},{"material":"water","p":{"x":1669,"y":-248.36011080332406},"v":{"x":0,"y":0},"static":false,"id":437},{"material":"water","p":{"x":1617,"y":-274.3947368421052},"v":{"x":0,"y":0},"static":false,"id":438},{"material":"water","p":{"x":1580,"y":-282.4058171745152},"v":{"x":0,"y":0},"static":false,"id":439},{"material":"water","p":{"x":1503,"y":-291.41966759002764},"v":{"x":0,"y":0},"static":false,"id":440},{"material":"water","p":{"x":1440,"y":-292.4210526315789},"v":{"x":0,"y":0},"static":false,"id":441},{"material":"water","p":{"x":1379,"y":-288.4155124653739},"v":{"x":0,"y":0},"static":false,"id":442},{"material":"water","p":{"x":1318,"y":-284.40997229916894},"v":{"x":0,"y":0},"static":false,"id":443},{"material":"water","p":{"x":1252,"y":-278.40166204986144},"v":{"x":0,"y":0},"static":false,"id":444},{"material":"water","p":{"x":1162,"y":-262.37811634349026},"v":{"x":0,"y":0},"static":false,"id":445},{"material":"water","p":{"x":1102,"y":-256.371191135734},"v":{"x":0,"y":0},"static":false,"id":446},{"material":"water","p":{"x":1042,"y":-251.36426592797778},"v":{"x":0,"y":0},"static":false,"id":447},{"material":"water","p":{"x":995,"y":-249.36149584487532},"v":{"x":0,"y":0},"static":false,"id":448},{"material":"water","p":{"x":959,"y":-246.35595567867034},"v":{"x":0,"y":0},"static":false,"id":449},{"material":"water","p":{"x":926,"y":-240.3490304709141},"v":{"x":0,"y":0},"static":false,"id":450},{"material":"snow","p":{"x":798,"y":-420.59695290858724},"v":{"x":0,"y":0},"static":false,"id":451},{"material":"snow","p":{"x":761,"y":-433.61495844875344},"v":{"x":0,"y":0},"static":false,"id":452},{"material":"snow","p":{"x":718,"y":-440.6260387811634},"v":{"x":0,"y":0},"static":false,"id":453},{"material":"snow","p":{"x":690,"y":-437.6218836565097},"v":{"x":0,"y":0},"static":false,"id":454},{"material":"snow","p":{"x":639,"y":-431.6121883656509},"v":{"x":0,"y":0},"static":false,"id":455},{"material":"snow","p":{"x":600,"y":-427.6080332409972},"v":{"x":0,"y":0},"static":false,"id":456},{"material":"snow","p":{"x":567,"y":-427.60664819944594},"v":{"x":0,"y":0},"static":false,"id":457},{"material":"snow","p":{"x":850,"y":-449.6385041551246},"v":{"x":0,"y":0},"static":false,"id":458},{"material":"snow","p":{"x":831,"y":-481.68144044321326},"v":{"x":0,"y":0},"static":false,"id":459},{"material":"snow","p":{"x":803,"y":-486.68975069252076},"v":{"x":0,"y":0},"static":false,"id":460},{"material":"snow","p":{"x":771,"y":-494.6994459833795},"v":{"x":0,"y":0},"static":false,"id":461},{"material":"snow","p":{"x":721,"y":-501.7105263157895},"v":{"x":0,"y":0},"static":false,"id":462},{"material":"snow","p":{"x":691,"y":-508.7202216066482},"v":{"x":0,"y":0},"static":false,"id":463},{"material":"snow","p":{"x":662,"y":-511.72437673130196},"v":{"x":0,"y":0},"static":false,"id":464},{"material":"snow","p":{"x":625,"y":-507.7188365650969},"v":{"x":0,"y":0},"static":false,"id":465},{"material":"snow","p":{"x":597,"y":-479.6786703601108},"v":{"x":0,"y":0},"static":false,"id":466},{"material":"snow","p":{"x":581,"y":-452.64127423822714},"v":{"x":0,"y":0},"static":false,"id":467},{"material":"snow","p":{"x":765,"y":-467.6620498614958},"v":{"x":0,"y":0},"static":false,"id":468},{"material":"snow","p":{"x":698,"y":-409.58310249307476},"v":{"x":0,"y":0},"static":false,"id":469},{"material":"snow","p":{"x":812,"y":-456.6468144044321},"v":{"x":0,"y":0},"static":false,"id":470},{"material":"snow","p":{"x":797,"y":-529.7493074792244},"v":{"x":0,"y":0},"static":false,"id":471},{"material":"snow","p":{"x":760,"y":-553.7825484764543},"v":{"x":0,"y":0},"static":false,"id":472},{"material":"snow","p":{"x":722,"y":-567.8019390581717},"v":{"x":0,"y":0},"static":false,"id":473},{"material":"snow","p":{"x":691,"y":-571.8074792243767},"v":{"x":0,"y":0},"static":false,"id":474},{"material":"snow","p":{"x":655,"y":-562.7950138504154},"v":{"x":0,"y":0},"static":false,"id":475},{"material":"snow","p":{"x":613,"y":-532.7520775623268},"v":{"x":0,"y":0},"static":false,"id":476},{"material":"snow","p":{"x":614,"y":-456.6481994459833},"v":{"x":0,"y":0},"static":false,"id":477},{"material":"snow","p":{"x":695,"y":-470.66759002770084},"v":{"x":0,"y":0},"static":false,"id":478}]';
+}
+
+
+/*
+menambahkan material. Jika materialnya sudah disimpan tambahkan... 
+jika belum...  load dari introlevel (mula-mula on enter frame )
+
+Untuk material yang keras (kayu, besi, tanah ) sifatnyas static jadi 
+densitas dibuat nol.... sementara Untuk Material lainnya semisal air, oli,
+dan lain-lain.... nilai kecepatannya diload...
+*/
+function loadLvl(name)
+{
+	delJoints();
+	delCircles();
+
+	name = name || 'lvl';
+
+	var lvl = localStorage[name];
+	if (name=='introlevel')
+		lvl = introlevel();
+
+	if (!lvl) lvl = '[]';
+	lvl = JSON.parse(lvl);
+
+	$.each(lvl, function(i, o)
+	{
+		// not in old saves
+		//if (!o.isCircle) return;
+		if (o.isJoint) return;
+
+		var c = new Circle(o.material, o.p.x, o.p.y);
+		if (o.static)
+			c.setDensity(0);
+		else
+			c.v = v2copy(o.v);
+
+		c.load_id = o.id;
+		circles.push(c);
+	});
+
+	$.each(lvl, function(i, o)
+	{
+		if (!o.isJoint) return;
+
+		var a = getLoadId(o.a_id);
+		var b = getLoadId(o.b_id);
+
+		if (hasJoint(a, b))
+			return console.log('wtf, bad lvl, has duplicate joint');
+
+		a.connect(b);
+	});
+
+	nicelog('loaded '+name);
+	resetCam();
+}
+
+function saveLvl(bConfirm, name)
+{
+	nullShiftCtrlAlt();
+	if (bConfirm)
+	{
+		if (!confirm('really save?')) return;
+	}
+
+	name = name || 'lvl';
+
+	var lvl=[];
+	$.each(circles, function(i, c)
+	{
+		lvl.push({
+			material: c.m.name,
+			p: c.p,
+			v: c.v,
+			static: !c.mass,
+			id: c.id,
+		});
+	})
+
+	$.each(joints, function(i, j)
+	{
+		lvl.push({
+			isJoint: true,
+			a_id: j.A.id,
+			b_id: j.B.id,
+		});
+	})
+
+	localStorage[name] = JSON.stringify(lvl);
+	nicelog('saved');
+}
+
+function doByArgs(fn, first, orOther)
+{
+	// is material name?
+	if (typeof first == 'string')
+	{
+		var mName = first;
+		$.each(circles, function(i, c)
+		{
+			if (c.m.name == mName)
+				fn(c);
+		});
+		return true;
+	}
+
+	var arr = [];
+
+	if (first instanceof Array)
+		arr = first;
+
+	if (!arr.length && orOther instanceof Array)
+		arr = orOther;
+
+	$.each(arr, function(i, c)
+	{
+		fn(c);
+	});
+
+	//nicelog('processed ',arr.length,' items - so it shouldnt check "pressed twice"');
+	if (arr.length) return true;
+}
+
+// 1 object:		solidify(circle0)
+// by material:		solidify('dirt')
+// array:			solidify(getGrasping())
+//					solidify(circles)
+// array or other:	solidify(getGrasping(), circles)
+
+var lastPressTimes = {};
+function pressedTwiceInSecond(sName)
+{
+	var now = time();
+	var t = lastPressTimes[sName];
+	if (!t || (now - t) > 1000)
+	{
+		lastPressTimes = {};
+		lastPressTimes[sName] = now;
+		return false;
+	}
+
+	lastPressTimes = {};
+	return true;
+}
+function currentlyInLastSec()
+{
+	if (!lastPressTimes) return '';
+
+	var name = '';
+	$.each(lastPressTimes, function(k, o)
+	{
+		var elapsed = time() - o;
+		if (elapsed < 1000) name = k;
+	});
+	return name;
+}
+
+function solidify(c, arr)
+{
+	if (c instanceof Circle)
+		return c.setDensity(0);
+
+	if (!doByArgs(solidify, c, arr) && pressedTwiceInSecond('solidify'))
+		doByArgs(solidify, circles);
+}
+function dynamify(c, arr)
+{
+	if (c instanceof Circle)
+		return c.setDensity(c.m.density);
+
+	if (!doByArgs(dynamify, c, arr) && pressedTwiceInSecond('dynamify'))
+		doByArgs(dynamify, circles);
+}
+function meld(c, arr)
+{
+	if (c instanceof Circle)
+		return c.checkNewJoints();
+
+	if (!doByArgs(meld, c, arr) && pressedTwiceInSecond('meld'))
+		doByArgs(meld, circles);
+}
+function unmeld(c, arr)
+{
+	if (c instanceof Circle)
+		return c.unmeld();
+
+	if (!doByArgs(unmeld, c, arr) && pressedTwiceInSecond('unmeld'))
+		doByArgs(unmeld, circles);
+}
+function remove(c, arr)
+{
+	if (c instanceof Circle)
+		return c.remove();
+
+	if (!doByArgs(remove, c, arr) && pressedTwiceInSecond('remove'))
+		doByArgs(remove, circles);
+}
+
+
+/*
+
+*/
+function getSprite(name, size, frames)
+{
+	if (sprites[name])
+		return sprites[name];
+
+	frames = frames || 1;
+	size = size || badSprite;
+
+	var spr = {
+		name: name,
+		fname: 'i/'+name+'.png',
+		size: size,
+	};
+
+	var bd = new BitmapData(spr.fname, frames);
+	spr.bmpData = bd
+	spr.newBitmap = function()
+	{
+		if (bd.frames > 1)	return new MBitmap(bd);
+		else				return new Bitmap(bd);
+	}
+
+	sprites[name] = spr;
+	return spr;
+}
+
+function isFixed(a)
+{
+	return (a.toFixed() == a);
+}
+
+function nullShiftCtrlAlt()
+{
+	kd['SHIFT'] = 0;
+	kd['CTRL'] = 0;
+	kd['ALT'] = 0;
+}
+
+function extractDelta(e)
+{
+	if (e.wheelDelta)	return e.wheelDelta;
+	if (e.detail)		return e.detail * -40;
+	if (e.originalEvent && e.originalEvent.wheelDelta)
+						return e.originalEvent.wheelDelta;
+}
+$(document).bind('mousewheel DOMMouseScroll', function (e) {
+	var d = extractDelta(e);
+
+	if (onMouseWheel)
+		onMouseWheel(d);
+});
+
+// ready
+$(function()
+{
+	start();
+
+	//setTimeout(onRESIZE, 100);
+	//setTimeout(onRESIZE, 200);	// otherwise it somehow doesnt work :/
+	onRESIZE();
+
+	resetCam();
+
+	nullShiftCtrlAlt();
+
+	$('#sliders').hover(
+		function() { $(this).css('opacity', 1) },
+		function() { $(this).css('opacity', 0) }
+	);
+
+	if (0)
+	{
+		addSlider('g_f1',			0, 2, 0.01);
+		addSlider('g_f2',			0, 2, 0.01);
+		addSlider('g_f3',			0, 2, 0.01);
+		addSlider('g_f4',			0, 2, 0.01);
+		addSlider();
+	}
+
+/*
+	addSlider('g_maxLinks',			0, 9, 1);
+	addSlider('g_sphRestDensity',	0.1, 5, 0.1, 'log');
+	addSlider('g_timeMult',			0.0, 5.0,	0.005);
+	addSlider('g_sprK',				0, 255000, 20);
+	addSlider('g_sprDamp',			0, 200);
+	addSlider('g_drawGrid',			0, 1);
+	addSlider('g_useGrid',			0, 1);
+	addSlider('g_skipJointCollision',	0, 1);
+*/
+	addSlider('g_gravity',			0, 9, 1);
+
+	addSlider('g_drawHeat',			0, 1);
+	addSlider('g_HeatMax',			0.1, 1000, 0.1, 'log');
+	addSlider('g_jointWidth',		0, 4, 1);
+	addSlider();
+	addSlider('g_nonsphPress',		100, 999999);
+	addSlider('g_nonsphPressNear',	100, 999999);
+	addSlider('g_sphQ2',			0.5, 5, 0.1);
+	addSlider('g_sphQ3',			0.5, 5, 0.1);
+	addSlider('g_sphQmult',			0.5, 5, 0.1);
+
+
+	//$('.slider_g_timeMult > a').focus();
+
+	function addSlider(evalName, mn, mx, step, logarithmic)
+	{
+		var sliders = $('#sliders');
+		if (!evalName)
+			return sliders.append('<br>');
+
+		if (mn>=1 && mx/mn >= 50000)
+			logarithmic = 1;
+
+		if (logarithmic)
+		{
+			mn = loge(mn);
+			mx = loge(mx);
+			step = 0.001;
+		}
+
+		step = step || 1;
+		if (!isFixed(mn) || !isFixed(mx))
+			step = minmax(mn, 0.001, (mx-mn)/100+0.01);
+
+		$('<span></span>').appendTo(sliders);
+		var slider = $('<div>').appendTo(sliders);
+		slider.width(200);
+		slider.addClass('slider_'+evalName);
+
+		function fnSlide(ev, ui)
+		{
+			var v = ui.value;
+			if (logarithmic)
+			{
+				v = powe(v);
+				if (v < 5) v = v.toFixed(2);
+				else 		v = v.toFixed(0);
+			}
+			eval(evalName+' = v');
+			$(this).prev().text(evalName+': '+v);
+		}
+
+		var val = eval(evalName);
+		mn = min(mn, val);
+		mx = max(mx, val);
+
+		slider.slider({
+			min:mn,
+			max:mx,
+			step: step,
+			change:	fnSlide,
+			slide:	fnSlide,
+		});
+		var currVal = eval(evalName);
+		if (logarithmic)
+			currVal = loge(currVal);
+		slider.slider( {value: currVal} );
+	}
+});
+
+//$(window).resize(onRESIZE);
+function onRESIZE()
+{
+	bgScaleOnResize();
+
+	updateStageTransform();
+}
+
+function bgScaleOnResize()
+{
+	var doItLater = 0;
+
+	var w = stage.stageWidth;
+	var h = stage.stageHeight;
+
+	if (bgImage)
+	{
+		var bg = bgImage;
+		var d = bg.bitmapData;
+		if (d.width)
+		{
+			bg.scaleX = stage.stageWidth / d.width;
+			bg.scaleY = stage.stageHeight / d.height;
+			var mx = max(bg.scaleX, bg.scaleY);
+			bg.scaleX = mx;
+			bg.scaleY = mx;
+		}
+		else
+			doItLater = 1;
+	}
+	if (bgClr)
+	{
+		var sz = 50000;
+
+		// sky
+		var cSky = 0x99bbee;
+		var cDirt = 0x64533e;
+		var cc = 0 ? cDirt : cSky;
+		bgClr.graphics.beginFill(cc);
+		bgClr.graphics.drawRect(-sz/2, 0, sz, -sz/2);
+
+		// bottom with rock-color
+		bgClr.graphics.beginFill(0x777777);	// rocks
+		bgClr.graphics.drawRect(-sz/2, 0, sz, sz/4);
+
+		if (!'show start rect') {
+		bgClr.graphics.beginFill(0xff0000, 0.1);	// beginning screen
+		bgClr.graphics.drawRect(0, 0, w, -h);
+		}
+	}
+
+	if (doItLater)
+		setTimeout(bgScaleOnResize, 10);
+}
+
+function processSound(type, A, B)
+{
+	return;
+
+	if (A == c0 || B == c0)
+	{
+		if (v2len(c0.v) > 500)
+			$('.'+type)[rndi(4)].play();
+	}
+}
+
+
+var pairs = [];
+function addPair(a, b)
+{
+	pairs.push( {A:a, B:b} );
+}
+
+function Circle(material, x, y)
+{
+	if (typeof material == 'string')
+		material = g_materials[material];
+	if (!material) material = g_materials['default'];
+	x = x || 0;
+	y = y || 0;
+
+	var A = this;
+	g_lastUsedObj = this;
+
+	A.p		= v2(x, y);
+	A.v		= v2(0, 0);
+	A.m		= material;
+	A.sph	= A.m.isSph;
+	A.r = rnd(g_radius) + g_radius;
+
+	A.links	= [];
+
+	A.sprite		= getSprite(A.m.sprite);
+	A.spriteHeat	= null;		// used if !null, use drawHeat(true/false)
+	A.o				= A.sprite.newBitmap();
+	stage.addChild(A.o);
+
+	A.setDensity = function(fDens)	// 0=static
+	{
+		var r = A.sph ? 1 : g_radius;
+		r = g_radius;
+		A.mass = fDens * (r*r * 3.14159); //  untuk besi, kayu, batu... nilai massa  = nol... karena density = 0 
+		A.invM = A.mass > 0 ? 1/A.mass : 0;
+		A.v = v2(0, 0);
+	}
+	A.rigidRadius = function()
+	{
+		if (A.sph) return g_sphRadius;	// SPHM
+		return g_radius;
+	}
+
+	A.setDensity(A.m.density);	// A.mass + A.invM
+
+	A.id	= g_freeCircleId++;
+	A.order = A.id;		// will be changed frequently, see sortFromDynamics
+
+	A.setStatic = function()
+	{
+		A.setDensity(0);
+	}
+	A.unsetHeat = function()
+	{
+		A.drawHeat(false);
+	}
+	A.setHeat = function(f)
+	{
+		A.drawHeat(true);
+
+		if (!isOk(f)) f = 0;
+		f = abs(f);
+		f = minmax(f, 0, 1);
+		A.o.currentFrame = to_i(f*31);
+	}
+	A.drawHeat = function(enable)
+	{
+		if (enable && A.spriteHeat ||
+			!enable && !A.spriteHeat)
+			return;
+
+		if (A.o) stage.removeChild(A.o);
+
+		if (!enable)
+		{
+			A.spriteHeat = null;
+			A.o = A.sprite.newBitmap();
+		}
+		else
+		{
+			A.spriteHeat = getSprite('heat');
+			A.o = A.spriteHeat.newBitmap();
+		}
+
+		A.updateEngineScale();
+
+		stage.addChild(A.o);
+	};
+	A.updateEngineScale = function()
+	{
+		var spr = A.spriteHeat ? A.spriteHeat : A.sprite;
+		var sprMult = g_radius / spr.size * A.m.spriteScale;
+
+		A.offsetRadius = A.o.bitmapData.width * sprMult;
+
+		A.o.scaleX = 2 * sprMult;
+		A.o.scaleY = 2 * sprMult;
+	}
+
+	A.unmeld = function()
+	{
+		$.each(joints, function(i, j)
+		{
+			if (j.has(A))
+				j.remove();
+		});
+	}
+	A.remove = function()
+	{
+		if (g_lastUsedObj === A)
+			g_lastUsedObj = null;
+
+		if (A.removed) return;
+
+		A.unmeld();
+		stage.removeChild(A.o);
+		A.removed = true;
+	}
+
+	A.prepareRK = function()
+	{
+		A.a = v2(0, 0);
+		A.a1 = v2(0, 0);
+		A.a2 = v2(0, 0);
+		A.a3 = v2(0, 0);
+		A.a4 = v2(0, 0);
+	}
+
+	A.updateEngineData = function()
+	{
+		// toto by stacilo zavolat raz po nacitani textur, len neviem kam to dat
+		// a inak by to nemalo moc zrat..
+		A.updateEngineScale();
+
+		A.o.x = A.p.x - A.offsetRadius;
+		A.o.y = A.p.y - A.offsetRadius;
+	}
+	A.gravity = function()
+	{
+		if (!A.mass) return;
+
+		var g = v2mult(g_nGravity, g_gravity*dt*1000);
+		v2addMe(A.v, g);
+	}
+	A.fixBrokenVelocityPosition = function()
+	{
+		if (!A.mass) return;
+		if (!isOk(A.p.x)) A.p.x = 100;
+		if (!isOk(A.p.y)) A.p.y = 100;
+		if (!isOk(A.v.x)) A.v.x = 0;
+		if (!isOk(A.v.y)) A.v.y = 0;
+	}
+	A.moveByVelocity = function()
+	{
+		if (!A.mass)
+		{
+			if (A.v.x || A.v.y) console.error('static object has velocity!');
+			return;
+		}
+
+		if (A.m.velocityDamp)
+		{
+			var dmp = A.m.velocityDamp * dt;
+			if (dmp > 1) dmp = 0.99;
+			v2subMe(A.v, v2mult(A.v, dmp));
+		}
+
+				if (A.impulses && (A.impulses.x || A.impulses.y))
+		{
+			v2addMe(A.v, v2mult(A.impulses, 1) );	// or *dtFrame ?
+			A.impulses = v2(0, 0);
+		}
+
+		A.v.x = absmin(A.v.x, g_maxVelLimit);
+		A.v.y = absmin(A.v.y, g_maxVelLimit);
+
+		g_currMaxVel2 = max(v2len2(A.v), g_currMaxVel2);
+
+		if (A.movedByRk)
+		{
+			A.movedByRk = 0;
+			return;
+		}
+
+		A.p.x += A.v.x * dt;
+		A.p.y += A.v.y * dt;
+	}
+
+	A.calcVelocityFromDisplacement = function()
+	{
+		if (!A.mass || !dt || !A.sph)
+			return;
+
+		if (!A.pOld)
+			A.pOld = v2copy(A.p);
+
+		if (A.sph)
+		{
+			A.v		= v2div(v2sub(A.p, A.pOld), dt);
+			A.pOld	= v2copy(A.p);
+		}
+	}
+
+	A.frameStart = function()
+	{
+		A.sphDens		= 0;
+		A.sphDensNear	= 0;
+		A.v_ = v2(0, 0);
+
+		/*
+		if (!A.vOld) A.vOld = v2(0, 0);
+		A.vOld = v2c(A.v);
+		if (dt)
+			A.acc = v2sub(A.vOld, A.v)/dt;
+		*/
+
+		// dbg
+		A._seqI=0;
+		A._seqIabs=0;
+	}
+
+	A.findPairs = function()
+	{
+		// cant use rigid radius here, cos some pairs are from smooth particles
+		var dynOnly = !A.mass;
+		var r = A.sph ? g_sphRadius : g_radius;
+
+		var chk = getNearby(A.p, r, A.order, dynOnly);
+		for (var i=0; i < chk.length; i++)
+		{
+			var B = chk[i];
+			if (A == B) continue;
+			frame_collision_checks++;
+
+			// show what pairs does getNearby return
+			//drawLine(A.p, B.p, 'f00');
+
+			if (!A.mass && !B.mass) continue;
+
+			if (g_skipJointCollision)
+				if (A.isLinked(B)) continue;
+
+			var maxDist;
+			if (!A.sph && !B.sph)	maxDist = g_radius*2;
+			else					maxDist = g_sphRadius*2;
+
+
+			if ( v2isCloserThan(A.p, B.p, maxDist) )
+				addPair(A, B);
+			else
+				;//nullContact(A, B);
+		}
+	}
+
+	A.sphCalculateDensity = function(B, p)
+	{
+		//if (!A.sph && !B.sph) return;
+
+		var maxRange = g_sphRadius*2;
+
+		var d = v2dist(A.p, B.p); // hitung jarak partikel saat ini dengan 
+								//  partikel B
+
+		p.q = 1 - d / maxRange;
+		if (p.q < 0) p.q = 0;
+
+		p.q *= g_sphQmult;
+
+		p.q = min(p.q, 1);
+		p.q2 = pow(p.q, g_sphQ2);
+		p.q3 = pow(p.q, g_sphQ3);
+
+		A.sphDens		+= p.q2;
+		B.sphDens		+= p.q2;
+		A.sphDensNear	+= p.q3;
+		B.sphDensNear	+= p.q3;
+
+		p.a2b = d;
+	}
+
+	// A.m.sphStiff * (A.sphDens - A.m.sphRestDensity);
+	A.pressure_ = function() { return A.m.sphStiff * A.sphDens; }
+	A.pressureNear_ = function() { return A.m.sphStiffNear * A.sphDensNear; }
+	A.sphCalculatePressure = function()
+	{
+		if (A.sph)
+		{
+			A.pressure = A.pressure_();
+			A.pressureNear = A.pressureNear_();
+		}
+		else
+		{
+			A.pressure = g_nonsphPress;
+			A.pressureNear = g_nonsphPressNear;
+		}
+
+		if (0 &&A.sph) {
+			drawCircleO(A.p, A.pressure/100, 'f00');
+			drawCircleO(A.p, A.pressureNear/100, '00f');
+		}
+
+		g_avgSphDensity += A.sphDens;
+		g_numSph++;
+	}
+
+	A.sphSolve = function(B, p)
+	{
+		//processSound('splash', A, B);
+
+		if (g_maxPressure < A.pressure)
+			g_maxPressure = A.pressure;
+		if (g_maxPressureNear < A.pressureNear)
+			g_maxPressureNear = A.pressureNear;
+
+		if (!A.pressure) A.pressure = 9999;
+		if (!B.pressure) B.pressure = 9999;
+		if (!A.pressureNear) A.pressureNear = 33333;
+		if (!B.pressureNear) B.pressureNear = 33333;
+
+		var press = A.pressure + B.pressure;
+		var pressN = A.pressureNear + B.pressureNear;
+
+		var fDisp = (press*p.q2 + pressN*p.q3);
+		fDisp *= dt * dt;
+
+		if (g_drawContacts)
+		{
+			var clr = heatclr(pressN/130000);
+			if (!A.sph || !B.sph)
+				drawLine(A.p, B.p, clr);
+		}
+
+		if (!p.a2b) p.a2b = 1;
+		var a2bN = v2div(v2sub(B.p, A.p), p.a2b); // jarak ternormalisir
+		var vDisp = v2mult(a2bN, -fDisp);
+
+		v2divMe( vDisp, (A.invM+B.invM) );
+		return vDisp;
+	}
+	A.rigidSolve = function(B, p)
+	{
+		processSound('puk', A, B);
+
+		var vF = collideForce(A, B);
+
+		if (1)
+		{
+			v2addMe(A.v, v2mult(vF, A.invM) );
+			v2subMe(B.v, v2mult(vF, B.invM) );
+			return v2(0, 0);
+		}
+		return v2mult(vF, dt);
+	}
+
+	A.solveCollision = function(B, p)
+	{
+		frame_collisions++;
+		var vDisp;
+
+		if (A.sph || B.sph)
+			vDisp = A.sphSolve(B, p);
+		else
+			vDisp = A.rigidSolve(B, p);
+
+		if (!dt) return;
+
+		if (A.active) {
+			if (A.sph)	v2addMe( A.p, v2mult(vDisp, A.invM) );
+			else		v2addMe( A.v, v2mult(vDisp, A.invM/dt) );
+		}
+		if (B.active) {
+			if (B.sph)	v2subMe( B.p, v2mult(vDisp, B.invM) );
+			else		v2subMe( B.v, v2mult(vDisp, B.invM/dt) );
+		}
+	}
+
+	A.odrazOdStran = function()
+	{
+		if (!A.mass) return;
+
+		if (!dt) return;
+
+		var r = A.rigidRadius();
+
+		var w = stage.stageWidth - r;
+		var h = stage.stageHeight - r;
+
+		var fRestitution = 1;
+		var fMoveBackRatio = 0.5;
+		if (A.p.y > -r)
+		{
+			var d = -A.p.y - r;
+			A.p.y += d * fMoveBackRatio;
+			A.v.y = -abs(A.v.y * fRestitution);
+		}
+	}
+	A.linksMaxed = function()
+	{
+		return (g_maxLinks && A.links.length >= g_maxLinks);
+	}
+
+	A.checkNewJoints = function(bOnlyCheckLaterOrder)
+	{
+		var order = -1;
+		if (bOnlyCheckLaterOrder) order = A.order;
+
+		//if (!A.mass) return;
+		if (A.m.name == 'water') return;
+		if (A.linksMaxed()) return;
+
+		var chk = getNearby(A.p, g_radius*1.5, order);
+		for (var i=0; i < chk.length; i++)
+		{
+			var B = chk[i];
+			if (A == B) continue;
+
+			frame_spring_checks++;
+
+			if (!A.mass && !B.mass) continue;
+			//if (!B.mass) continue;
+
+			if (A.isLinked(B)) continue;
+			if (B.linksMaxed()) continue;
+
+			if (g_meldOnlySameMaterial)
+				if (B.m != A.m) continue;
+
+			var lenMeld = A.sprMeld(B);
+			if ( !v2isFurtherThan(A.p, B.p, lenMeld) )
+				A.connect(B);
+		}
+	}
+	// 'b' is other object
+	A.sprLen = function(B) {
+		return (A.rigidRadius() + B.rigidRadius())*g_sprLenRatio;
+	}
+	A.sprMax = function(B) {
+		return A.sprLen(B)*9999;//g_sprMax;
+	}
+	A.sprMeld = function(B) {
+		return A.sprLen(B)*min(g_sprMax, 1.5);
+	}
+
+	A.isLinked = function(B)
+	{
+		for (var i=0; i < A.links.length; i++)
+		{
+			if (A.links[i] == B)
+				return true;
+		}
+	}
+	A.connect = function(B)
+	{
+		console.assert( !A.isLinked(B) );
+
+		A.links.push(B);
+		B.links.push(A);
+		joints.push( new Joint(A, B) );
+	}
+	// this is called by joints
+	A.remove_connection_to = function(B)
+	{
+		for (var i=0; i < A.links.length; i++)
+		{
+			if (A.links[i] == B)
+				return removeAt(A.links, i);
+		}
+	}
+	A.unmeld = function()
+	{
+		$.each(joints, function(i, j)
+		{
+			if (j.has(A))
+				j.remove();
+		});
+	}
+
+	A.impulse = function(vI)
+	{
+		if (!A.mass) return;
+
+		if (!A.impulses) A.impulses = v2(0, 0);
+		v2addMe(A.impulses, v2mult(vI, dtFrame*1000) );
+	}
+}
+
+function hasJoint(a, b)
+{
+	var has = 0;
+	$.each(joints, function(i, j) {
+		if (!j.has(a, b)) return;
+		has = true;
+		return false;
+	});
+	return has;
+}
+function Joint(A, B)
+{
+	if (DEBUG)
+	{
+		if (A === B)
+			console.log('a == b - wtf joint');
+
+		if (hasJoint(A, B))
+			console.log('has(a, b) already exists - wtf joint');
+	}
+
+	var j = this;
+	j.A			= A;
+	j.B			= B;
+
+	j.dbg_drawJoints = function()
+	{
+		var sprLen = A.rigidRadius() + B.rigidRadius();
+		var dist = v2dist(A.p, B.p);
+		var f = (dist - sprLen) / (sprLen*g_sprMax - sprLen);
+		f = minmax(f, -1, 1);
+		f = abs(f);
+		f = 1-f;
+		f = f*f*f*f;
+		f = 1-f;
+		f = parseInt(f*255);
+		var green = 255-f;
+		var red = f;
+		var clr = red*256*256 + green*256;
+
+		var ax = A.p.x, ay=A.p.y;
+		var bx = B.p.x, by=B.p.y;
+
+		drawLine(ax, ay, bx, by, clr, g_jointWidth);
+	}
+
+	// i = 1,2,3,4
+	j.updateRK = function(i)
+	{
+		if (!A.mass && !B.mass) return;
+		if (!dt) return;
+
+		var t = dt;
+		switch (i) {
+			case 1: t *= 0;
+			break;
+			case 2:
+			case 3: t *= 0.5;
+			break;
+			case 4: t *= 1;
+			break;
+		}
+
+		var q = i-1;	// previous index
+		var vq = 'v'+q;
+		var aq = 'a'+q;
+		var pi = 'p'+i;
+		var vi = 'v'+i;
+		var ai = 'a'+i;
+
+		A[pi] = v2c(A.p);
+		B[pi] = v2c(B.p);
+		A[vi] = v2c(A.v);
+		B[vi] = v2c(B.v);
+		if (q)
+		{
+			v2addMe(A[pi], v2mult(A[vq], t));
+			v2addMe(B[pi], v2mult(B[vq], t));
+			v2addMe(A[vi], v2mult(A[aq], t));
+			v2addMe(B[vi], v2mult(B[aq], t));
+		}
+
+		var a = dampspringForce_pv(A[pi], A[vi], B[pi], B[vi], A.sprLen(B), g_sprK, g_sprDamp);
+		v2divMe(a, A.invM+B.invM)
+		v2addMe(A[ai], v2mult(a, A.invM));
+		v2subMe(B[ai], v2mult(a, B.invM));
+
+		//j.dbgRK(i, a);
+	}
+	j.dbgRK = function(i, a)
+	{
+		var w = 1;
+		var fa = 0.0005;
+		var fv = 0.05;
+		var off = (i+1)*20;
+
+		if (!i) i = '';
+		var aa = v2mult(A['a'+i], fa);
+		var ba = v2mult(B['a'+i], fa);
+		var av = v2mult(A['v'+i], fv);
+		var bv = v2mult(B['v'+i], fv);
+		var ap = v2c(A['p'+i]);
+		var bp = v2c(B['p'+i]);
+		var pp = v2center(ap, bp);
+		v2addMexy(ap, off, 0);
+		v2addMexy(bp, off+10, 0);
+
+		//if (a) drawLineN(pp, v2perp(a, fa*-0.001), 'f00', 1);
+
+		//drawLineN(ap, aa, 'f00', w);
+		//drawLineN(bp, ba, '0f0', w);
+
+		v2addMex(ap, 5);
+		v2addMex(bp, 5);
+		//drawLineN(ap, av, 'f0f', w);
+		//drawLineN(bp, bv, '00f', w);
+	}
+
+	j.updateRK4 = function()
+	{
+		if (!A.mass && !B.mass) return;
+		if (!dt) return;
+
+		finishRK4(A);
+		finishRK4(B);
+		//j.dbgRK(0);
+	}
+	function finishRK4(c, q)
+	{
+		if (!c.active) return;
+
+		var pq = v2avg(c.p1, c.p2, c.p2, c.p3, c.p3, c.p4);
+		if (g_useRkPos)
+		{
+			c.p = v2c(pq);
+			c.movedByRk = 1;
+		}
+
+		var vq = v2avg(c.v1, c.v2, c.v2, c.v3, c.v3, c.v4);
+		if (g_useRkVel)
+			c.v = v2c(vq);
+
+		var aq = v2avg(c.a1, c.a2, c.a2, c.a3, c.a3, c.a4);
+		v2multMe(aq, dt);
+		v2addMe(c.a, aq);
+	}
+
+	j.update = function()
+	{
+		if (g_useRK)	j.updateRK4();
+		else			j.updateEuler();
+	}
+	j.updateEuler = function()
+	{
+		if (!A.mass && !B.mass) return;
+		if (!dt) return;
+
+		var vF = dampspringForce(A, B, A.sprLen(B), g_sprK, g_sprDamp);
+		v2multMe( vF, dt/(A.invM+B.invM) );
+		v2addMe( A.a, v2mult(vF, A.invM) );
+		v2subMe( B.a, v2mult(vF, B.invM) );
+	}
+
+	function dampspringForce_pv(Ap, Av, Bp, Bv, sprLen, sprK, sprDamp)
+	{
+		var a2b = v2dist(Bp, Ap);
+		var a2bN = v2dirTo(Ap, Bp);
+
+		var sI = (a2b - sprLen) * sprK;
+		var dI = v2dot( v2sub(Bv, Av), a2bN ) * sprDamp;
+
+		return v2mult(a2bN, sI+dI);
+	}
+
+	j.isBroken = function()
+	{
+		var sprLen = A.rigidRadius() + B.rigidRadius();
+		return v2isFurtherThan(A.p, B.p, A.sprMax(B));
+	}
+
+	j.remove = function()
+	{
+		A.remove_connection_to(B);
+		B.remove_connection_to(A);
+		j.removed = true;
+		return true;
+	}
+
+	j.has = function(c, q)
+	{
+		if (!q)
+			return (j.A==c || j.B==c);
+
+		return (j.A==c && j.B==q || j.A==q && j.B==c);
+	}
+
+	function dampspringForceRK4(sprK, sprLen, sprDamp, A, B)
+	{
+	/*
+		P, V, dt, A?
+
+		V1 = V + 0*dt*A
+		A1 = A		// [0, P, V1]	= current acceleration (when P and V)
+
+		V2 = V + 0.5*dt*A1
+		A2 = [0.5*dt, P+0.5*dt*V1, V2]
+
+		V3 = V + 0.5*dt*A2
+		A3 = [0.5*dt, P+0.5*dt*V2, V3]
+
+		V4 = V + 0.5*dt*A3
+		A4 = [dt, P+dt*V3, V4]
+
+		V_ = (V1 + 2*V2 + 2*V3 + V4)/6
+		A_ = (A1 + 2*A2 + 2*A3 + A4)/6
+	*/
+	
+		// create virtual objects
+		var A = {v: v2c(a.v), p: v2c(a.p), invM: a.invM};
+		var B = {v: v2c(b.v), p: v2c(b.p), invM: b.invM};
+		var sprLen = a.sprLen(b);
+
+		A.f1 = a.f1;
+		A.vOrig = v2c(A.v);
+		B.vOrig = v2c(B.v);
+		fRK4(A, B, 0.00001*dt, 1, sprLen);	// will use A.f1
+		fRK4(A, B, 0.5*dt, 2, sprLen);
+		fRK4(A, B, 0.5*dt, 3, sprLen);
+		fRK4(A, B, 1.0*dt, 4, sprLen);
+
+		var fx = A.f1.x + 2*(A.f2.x + A.f3.x) + A.f4.x;
+		var fy = A.f1.y + 2*(A.f2.y + A.f3.y) + A.f4.y;
+		var vF = v2(fx, fy);
+		return vF;
+	}
+
+	function dampspringForceRK4_pv(sprK, sprLen, sprDamp, A, B)
+	{
+
+	/*
+		// mam P a V
+		P1 = P
+		V1 = V
+
+		// posuniem sa o polku dt, a zistim aka by bola teraz potrebna rychlost
+		P2 = P + 0.5*dt*V1
+		V2 = newV(0.5*dt)
+
+		// posuniem sa o polku dt s vypocitanou rychlostou, a presnejsie(?) zistim aku treba rychlost
+		P3 = P + 0.5*dt*V2
+		V3 = newV(0.5*dt)
+
+		// skusim sa opat posunut, aby som zistil rychlost, tentoraz tam kde chcem ist
+		P4 = P + 1.0*dt*V3
+		V4 = newV(1.0*dt)
+
+		// vysledna rychlost je z kombinacie hodnot (asi)
+		P_ = (P1 + 2*P2 + 2*P3 + P4)/6
+		V_ = (V1 + 2*V2 + 2*V3 + V4)/6
+	*/
+
+		// create virtual objects
+		var A = {v: v2c(a.v), p: v2c(a.p), invM: a.invM};
+		var B = {v: v2c(b.v), p: v2c(b.p), invM: b.invM};
+		var sprLen = a.sprLen(b);
+
+
+		A.f1 = a.f1;
+		A.vOrig = v2c(A.v);
+		B.vOrig = v2c(B.v);
+		fRK4(A, B, 0.00001*dt, 1, sprLen);	// will use A.f1
+		fRK4(A, B, 0.5*dt, 2, sprLen);
+		fRK4(A, B, 0.5*dt, 3, sprLen);
+		fRK4(A, B, 1.0*dt, 4, sprLen);
+
+		var fx = A.f1.x + 2*(A.f2.x + A.f3.x) + A.f4.x;
+		var fy = A.f1.y + 2*(A.f2.y + A.f3.y) + A.f4.y;
+		var vF = v2(fx, fy);
+		return vF;
+	}
+
+	function fRK4(A, B, timestep, k, sprLen)
+	{
+		var vF;
+		if (timestep)
+			vF = dampspringForce(g_sprK, sprLen, g_sprDamp, A, B);
+		else
+			vF = v2c(A.f1);
+
+		A['f'+k] = v2c(vF);
+
+		v2multMe( vF, timestep/(A.invM+B.invM) );
+
+		var a1 = A['f'+(k-1)];
+		if (k>=2) {
+			A.v = v2add(A.vOrig, v2mult(a1, timestep));
+			B.v = v2add(B.vOrig, v2mult(a1, timestep));
+		}
+
+		v2addMe( A.v, v2mult(vF, A.invM) );
+		v2subMe( B.v, v2mult(vF, B.invM) );
+	}
+
+	function dampspringForce(A, B, sprLen, sprK, sprDamp)
+	{
+		var a2b = v2dist(B.p, A.p);
+		if (a2b == 0) { a2b = 1; A.p.y+=1; }
+		var a2bN = v2mult( v2sub(B.p, A.p), 1/a2b );
+
+		var d = a2b - sprLen;
+		var sI = sprK * d;
+
+		var difVel = v2sub(B.v, A.v);
+		var dI = v2dot( difVel, a2bN );
+
+		dI *= sprDamp;
+		var f = dI + sI;
+
+		return v2mult( v2dirTo(A.p, B.p), f );
+	}
+}
+
+var contacts = {};
+function getContact(a, b)
+{
+	var id = a.id+'-'+b.id;
+	if (!contacts[id])
+		contacts[id] = {impulse:0};
+
+	return contacts[id];
+}
+function nullContact(a, b)
+{
+	var id = a.id+'-'+b.id;
+	if (contacts[id])
+		contacts[id].impulse = 0;
+}
+
+// cf2
+function collideForce(A, B)
+{
+	var lenCol = g_radius*2;
+
+	var Av = v2add(A.v, A.v_);
+	var Bv = v2add(B.v, B.v_);
+
+	var a2b = v2dist(B.p, A.p);
+	if (!g_sequential)
+		if (a2b > lenCol) return v2(0, 0);
+
+	if (a2b == 0) { a2b = 1; A.p.y+=1; }
+	var a2bN = v2mult( v2sub(B.p, A.p), 1/a2b );
+
+	var difVel = v2sub(Bv, Av);
+	var dot = v2dot( difVel, a2bN );
+
+	if (g_drawContacts)
+	{
+		var c = v2center(A.p, B.p);
+		drawLine(A.p, B.p, 'fff');
+	}
+
+	if (g_sequential)
+	{
+		var con = getContact(A, B);
+
+		var relNv = dot;
+		var remove = 0;
+		if (dt)
+			remove = relNv + (a2b-lenCol)/dt;
+
+		var imp = remove / (A.invM + B.invM);
+		//imp *= g_f1;
+		// 0.5 je stabilnejsie, maksie, a viac sa prepada
+		// 1.3 drzi dost pokope, ale pri 1.4 uz sa rozbija
+
+		var newImp = min(0, imp + con.impulse);
+		//newImp *= g_f2;
+		// 1.01 vybuchuje
+		// 0.99 sa scvrkuje
+
+		var change = (newImp - con.impulse);
+		//change *= g_f3;
+		// to iste co f1
+
+		con.impulse = newImp;
+
+		return v2mult(a2bN, change);
+	}
+	else
+	{
+		var toTouch = 0;
+		if (dt)
+			toTouch = (a2b-lenCol)/dt;
+
+		var pwr = dot + toTouch;
+		if (pwr > 0)
+			return v2(0, 0);
+
+		pwr /= (A.invM + B.invM);
+
+		return v2mult(a2bN, pwr);
+	}
+}
+
+var framecount = 0;
+
+function start()
+{
+	stage = new Stage('c');
+	stage.mouseChildren = stage.eventChildren = false;
+
+	getSprite('player', 128, 4);
+	getSprite('heat', 64, 32);
+
+	var h = stage.stageHeight;
+
+	if ('bg')
+	{
+		bgClr = new Sprite();
+		stage.addChild(bgClr);
+
+		var f;
+		switch(3)
+		{
+			case 0: f = 'i/bg_black.png'; break;
+			case 1: f = 'i/bg_white.png'; break;
+			case 2: f = 'i/bg.jpg'; break;
+			case 3: f = 'i/bg2.jpg'; break;
+		}
+
+		//bgImage = new Bitmap(new BitmapData(f, 1));
+		if (bgImage) stage.addChild(bgImage);
+
+		bgScaleOnResize();
+	}
+
+	addCircles();
+
+	// dbg stuff
+	dbgs = new Sprite();
+	dbg = dbgs.graphics;
+	stage.addChild(dbgs);
+
+	stage.addEventListener(Event.ENTER_FRAME, onEF);
+	stage.addEventListener(Event.RESIZE, onRESIZE);
+	stage.addEventListener(KeyboardEvent.KEY_DOWN, onKD);
+	stage.addEventListener(KeyboardEvent.KEY_UP  , onKU);
+	stage.addEventListener(MouseEvent.MOUSE_MOVE, onMM);
+	stage.addEventListener(MouseEvent.MOUSE_DOWN, onMD);
+	stage.addEventListener(MouseEvent.MOUSE_UP, onMU);
+
+	addInfoTexts();
+	loadLvl('introlevel'); // ini yang menentukan material di awal running 
+}
+
+function addInfoTexts()
+{
+	var startX = 100;
+	var startY = -400;
+	var text = function(s, setX, setY)
+	{
+		if (setX) startX = setX;
+		if (setY) startY = setY;
+		drawText(startX, startY, s, 0, 0, stage);
+		startY += 30;
+	};
+
+	text('Fluid + rigid bodies dynamics', 0, -370);
+	text('');
+	text('   [D]irt, [W]ater');
+	text('   [SPACE+MOUSE] move camera');
+	text('');
+	text('(1 of 4) >>');
+
+	text('How about other elements?', 1000, -370);
+	text('');
+	text('   add [R]ocks, [S]and');
+	text('   add [Q]Snow, [A]ir');
+	text('');
+	text('(2 of 4) >>');
+
+	text('When hovering balls, you can:', 2000, -370);
+	text('');
+	text('   [N] make them solid (+SHIFT revert)');
+	text('   [X] delete them');
+	text('');
+	text('(3 of 4) >>');
+
+	text('Delete world? Make world solid?', 3000, -370);
+	text('');
+	text('   press 2x [N] to make everything solid');
+	text('   press 2x [X] to delete everything');
+	text('');
+	text('(4 of 4)');
+
+	text('More?', 4000, -370);
+	text('');
+	text('   [NUM 0] to pause time');
+	text('   [NUM 5] to unpause');
+	text('   [SHIFT+1] to save world (up to 9 worlds)');
+	text('   [1] to load world');
+	text('');
+	text('made by psycho');
+	text('using IvanK Lib (lib.ivank.net)');
+}
+
+function rangeUnit(f, mn, mx)
+{
+	return (f-mn) / (mx-mn);
+}
+function forRangeStepsLog(mn, mx, steps, fn)
+{
+	forRangeSteps(mn, mx, steps, fn, 'log');
+}
+function forRangeSteps(mn, mx, steps, fn, log)
+{
+	if (log) {
+		mn = loge(mn);
+		mx = loge(mx);
+	}
+
+	var step = 0;
+	if (steps > 1)
+		step = (mx-mn) / (steps-1);
+
+	for (var i=mn; i <= mx; i+=step)
+	{
+		var val = i;
+		if (log)
+			val = powe(val);
+
+		var ru = rangeUnit(i, mn, mx).toFixed(4);
+		var b = fn(val, ru);
+		if (b == false || !step)
+			break;
+	}
+}
+
+
+
+
+var mousePos	= v2null();
+var mouseLast	= v2null();
+var mouseScr	= v2null();
+var mouseScrLast = v2null();
+
+var graspingRange = 50;
+
+function getGrasping()
+{
+	if (!grasped)return
+
+	if (grasped instanceof Array) return grasped;
+
+	return [grasped];
+}
+
+var arrHovered = [];
+var grasped = [];
+function processMouse()
+{
+	if (kd['mouse'])
+		processGrasping();
+	else
+		grasped = [];
+
+	arrHovered = [];
+
+	var g = getCircleAtMouse();
+	if (g)
+	{
+		arrHovered = [g];
+	}
+	else
+	if (!grasped || !grasped.length)
+	{
+		var maxR = graspingRange / g_camZoom;
+
+		arrHovered = getAllColliding(mousePos, maxR);
+		if (arrHovered.length)
+			drawCircleO(mousePos, maxR, 'aaa');
+	}
+
+	$.each(arrHovered, function(i, c)
+	{
+		var r = g_radius;
+		r *= c.mass ? 1.3 : 0.3;
+		drawCrossBW(c.p, r, 'a0a');
+	});
+}
+
+function processGrasping()
+{
+	var m = mousePos;
+	var maxN = 3000;
+	var range = graspingRange / g_camZoom;
+	var spr = 100;
+	var dmp = 20;
+
+
+	var isArr = grasped instanceof Array;
+	if (isArr)
+	{
+		$.each(circles, function(i, c)
+		{
+			if (grasped.length > maxN)
+				return false;
+
+			if (!c.mass) return;
+
+			if (v2isCloserThan(c.p, m, range))
+			{
+				if (grasped.indexOf(c) == -1)
+				{
+					grasped.push(c)
+					g_lastUsedObj = c;
+				}
+			}
+		});
+
+		$.each(grasped, function(i, g)
+		{
+			grasp(g);
+			drawLine(m, g.p, 'aaa');
+		});
+	}
+
+	if (grasped && !isArr)
+	{
+		grasp(grasped);
+		drawLine(m, grasped.p, 'aaa');
+	}
+
+	function grasp(c)
+	{
+		var mass = c.mass+0;
+		if (c.sph) mass = 0;	// just for now..
+		grasp_(c.p, c.v, mass, spr, dmp);
+	}
+	function grasp_(p, v, mass, spr, dmp)
+	{
+		var m = mousePos;
+		var d = v2sub(m, p);
+		if (!mass || !dtFrame)
+		{
+			v.x=0;
+			v.y=0;
+			return v2addMe( p, v2mult(d, 0.05) );
+		}
+
+		if (v2len(d) < 50)
+			return;
+
+		var sp = spr * dtFrame * (mass?logn(mass, 4):1);
+		var dm = dmp * dtFrame;
+		dm = minmax(dm, 0, 0.99);
+
+		v2multMe(d, sp);				// spring
+		v2addMe( v, d );
+		v2subMe( v, v2mult(v, dm) );	// damp
+	}
+}
+
+function onMouseWheel(d)
+{
+	var fZoom = 1.15;
+	if (d > 0)
+		camZoomIn(fZoom);
+	else
+		camZoomOut(fZoom);
+}
+
+function onMM(e)
+{
+	var of = $('#c').offset();
+	var c = $('#c');
+	var w = $(window);
+	of = v2( of.left, of.top );
+	c = v2( c.width(), c.height() );
+	w = v2( w.width(), w.height() );
+
+	var m = v2( e.target.mouseX, e.target.mouseY );
+
+	// mousePos = (m-of) * (w/c);
+	mouseScrLast = mouseScr;
+	mouseScr = v2multV(
+				v2sub(m, of),
+				v2divV(w, c)
+				);
+
+	mouseLast = mousePos;
+	mousePos = screenToWorld(mouseScr);
+
+	if (kd['SPACE'])
+	{
+		var diff = v2sub(mouseScr, mouseScrLast);
+		lockCam = false;
+
+		var z = g_camZoom;
+		addCamPosition(-diff.x/z, -diff.y/z);
+	}
+
+}
+
+/*
+jika posisi material yang ditambahkan tidak 
+berdempetan dengan material yang sudah ada 
+*/
+function getFirstColliding(v, r)
+{
+	r = r || 0;
+	var maxR = g_radius + r;
+
+	for (var i=0; i < circles.length; i++)
+	{
+		var c = circles[i];
+		if (v2isCloserThan(c.p, v, maxR))
+			return c;
+	}
+}
+
+function getAllColliding(v, r)
+{
+	r = r || 0;
+	var arr = [];
+	var near = getNearby(v, r);
+
+	for (var i=0; i < near.length; i++)
+	{
+		var c = near[i];
+		if (v2isCloserThan(c.p, v, g_radius + r))
+			arr.push(c);
+	}
+	return arr;
+}
+
+function getCircleAtMouse()
+{
+	var arr = getAllColliding(mousePos);
+	if (arr && arr.length) return arr[0];
+}
+
+function onMD(e)
+{
+	if (!kd['mouse']) kx['mouse'] = true;
+	kd['mouse'] = true;
+	kc['mouse'] = true;
+
+	// grasping
+	grasped = [];
+
+	var bAllowGraspingOne = 1;
+	var g = 0;
+	if (bAllowGraspingOne)
+		g = getCircleAtMouse();
+	if (g)
+	{
+		grasped = g;
+		g_lastUsedObj = g;
+	}
+
+	if (grasped)
+		$('#sliders').hide();
+}
+function onMU(e)
+{
+	if (kd['mouse']) kx['mouse'] = true;
+	kd['mouse'] = false;
+	kc['mouse'] = true;
+
+	$('#sliders').show();
+}
+
+function getAlternativeCode(c)
+{
+	var ch = String.fromCharCode(c);
+	if (ch >= 'A' && ch <= 'Z' ||
+		ch >= '0' && ch <= '9')
+		return ch;
+
+	if (c==106) return 'NUM*';
+	if (c==107) return 'NUM+';
+	if (c==109) return 'NUM-';
+	if (c==96) return 'NUM0';
+	if (c==97) return 'NUM1';
+	if (c==98) return 'NUM2';
+	if (c==99) return 'NUM3';
+	if (c==100) return 'NUM4';
+	if (c==101) return 'NUM5';
+	if (c==102) return 'NUM6';
+	if (c==103) return 'NUM7';
+	if (c==104) return 'NUM8';
+	if (c==105) return 'NUM9';
+
+	// must be CAPS cos native 'shift' value
+	if (c==16) return 'SHIFT';
+	if (c==17) return 'CTRL';
+	if (c==18) return 'ALT';
+
+	if (c==13) return 'ENTER';
+	if (c==27) return 'ESC';
+	if (c==32) return 'SPACE';
+
+	if (c==37) return 'LT';
+	if (c==38) return 'UP';
+	if (c==39) return 'RT';
+	if (c==40) return 'DN';
+}
+
+var g_keylog = 0;//true;
+function logKey(c, bDown)
+{
+	if (!g_keylog) return;
+	var ch = getAlternativeCode(c);
+
+	var s = bDown ? 'DOWN:' : 'UP:  ';
+	s += (' '+c).normalizeLength(4);
+
+	if (ch) s += (' '+ch);
+
+	s = s.normalizeLength(15);
+
+	if (kd['CTRL']) s += ' +CTRL '
+	if (kd['SHIFT']) s += ' +SHIFT'
+	if (kd['ALT']) s += ' +ALT  '
+
+	console.log(s);
+}
+function onKD(e)
+{
+	var c = e.keyCode;
+	if (!kd[c]) kx[c] = true;
+	kd[c] = true;
+	kc[c] = true;
+
+	var ch = getAlternativeCode(c);
+	if (ch)
+	{
+		kd[ch] = true;
+		kc[ch] = true;
+	}
+
+	logKey(c, 'down');
+}
+
+function onKU(e)
+{
+	var c = e.keyCode;
+	if (kd[c]) kx[c] = true;
+	kd[c] = false;
+	kc[c] = true;
+
+	var ch = getAlternativeCode(c);
+	if (ch)
+	{
+		kd[ch] = false;
+		kc[ch] = true;
+	}
+
+	logKey(c);
+}
+
+function addCircles()
+{
+	var w = stage.stageWidth;
+	var h = stage.stageHeight;
+
+	//addItems('water', 2);
+	//addItems('dirt', 2);
+
+	if (numCircles)
+	{
+		var mats = [];
+		switch (4)
+		{
+			case 0: mats = ['skin', 'bone', 'flesh']; break;
+			case 1: mats = ['dirt', 'sand', 'rocks']; break;
+			case 2: mats = ['dirt', 'dirt', 'rocks']; break;
+			case 3: mats = ['water', 'water', 'dirt', 'rocks']; break;
+			case 4: mats = ['dirt']; break;
+			case 5: mats = ['water']; break;
+			case 6: mats = ['apple', 'orange', 'kiwi', 'strawb', 'banana']; break;
+			case 7: mats = ['oil', 'water', 'honey']; break;
+		}
+
+
+		var countPerM = to_i(numCircles / mats.length);
+		if (!countPerM) countPerM = 1;
+		for (var i=0; i < mats.length; i++)
+		{
+			var m = mats[i];
+			addItems(m, countPerM);
+			numCircles -= countPerM;
+			if (numCircles<=0) break;
+		}
+	}
+
+	if (0)
+	{
+		//c0 = addItems('player', 1, 0, w/2, 0)[0];
+		addItems('player', 1, 0, w/2, 0)[0];
+	}
+
+	// bottom
+	if (0)
+	{
+		var r = g_radius;
+		var x = -r*2;
+		var y = h-r*4;
+
+		var statics = addItems('iron', w/r*0.8, -0.5, x, y);
+		$.each(statics, function(i, e) {
+			e.setStatic();
+		});
+	}
+
+	g_lastAddedY = -1;
+}
+
+
+var g_lastAddedY=0;
+
+/*
+tambahkan sebanyak count material.... 
+jika count tidak ada.... maka tambahkan satu biji material 
+*/
+function addItems(materialName, count, spacingRatioOfR, startX, startY)
+{
+	// (RR)rr(RR)...
+	spacingRatioOfR = spacingRatioOfR || 1;
+	if (typeof count == 'undefined') count = 1;
+
+	var m = g_materials[materialName];
+	if (!m) {
+		console.error('no material defined');
+		return;
+	}
+
+	var r = m.isSph ?
+			min(g_sphRadius/2, 8) :
+			g_radius;
+	var w = stage.stageWidth;
+	var h = stage.stageHeight;
+
+	var space = r*2 + r*spacingRatioOfR;
+	var step = to_i( space )+1;
+	var side = to_i( w/step - 0.5 ); // -2 for spacing on sides
+
+	var customPosition = (startX || startY);
+	if (!customPosition)
+	{
+		startY = g_lastAddedY + space/2;
+		startX = space;
+	}
+	else
+		side = 9999;
+
+	var add = [];
+	for (var i=0; i < count; i++)
+	{
+		var xi = to_i(i%side);
+		var yi = to_i(i/side);
+		var x = xi*step + startX + rndi();	// rand to avoid aligning
+		var y = yi*step + startY + rndi();
+
+		if (!customPosition && y > h-space*4)
+			break;
+
+		add.push( new Circle(m, x, y) )
+
+		if (!customPosition && g_lastAddedY!=-1)
+			g_lastAddedY = y + space/2;
+	}
+
+	circles.append(add);
+	return add;
+}
+
+// z nejakeho divneho dovodu nieco zadefinuje 'add' a potom to oddefinuje, ale ked to tu takto nastavim,
+// tak tu zostane asi volanie starej funkcie, a tym padom sa to vola, kedze 'add_' nikto neoddefinuje.. asi tak..
+
+/*
+
+*/
+function add_(materialName, count)
+{
+	lockCam = 0;
+
+	var mat = materialName;
+	var m = mousePos;
+	if (kd['SHIFT'])
+	{
+		var r = (graspingRange-g_radius)/g_camZoom;
+		var i = 0;
+
+		while (i++ < 100)
+		{
+			var vRnd = v2rnd(0, r);
+			if (v2len2(vRnd) > r*r) continue;
+
+			var p = v2add(m, vRnd); // tambahkan material tidak  jauh dari posisi mouse saat ini 
+									// yakni dengan melakukan koreksi tertentu dari posisi mouse 
+			addIfSpace(mat, 1, 0, p.x, p.y);
+		}
+
+		return;
+	}
+
+	if (!count || count == 1) // ini masuk karena tidak ada argument untuk count
+	{
+		grasped = addIfSpace(mat, count, 0, m.x, m.y);
+		return grasped;
+	}
+	else
+		return add(mat, count);
+}
+
+// relatively (con?)temporary
+function add(materialName, count, space, x, y)
+{
+	return addItems(materialName, count, space, x, y)
+}
+
+/*
+tambahkan material jika tidak berdempetan dengan material yang sudah 
+ada 
+*/
+function addIfSpace(materialName, count, space, x, y)
+{
+	if (getFirstColliding(v2(x, y), g_radius-1)) return;
+	  return addItems(materialName, count, space, x, y)
+}
+
+function kkd(c) { return kd[c]; }
+function kkc(c) { return kc[c]; }
+function kkx(c) { return kx[c]; }
+function pressed(c)
+{
+	return kd[c] && kc[c];
+}
+function pressedAny()
+{
+	for (var i=0; i < arguments.length; i++)
+	{
+		var c = arguments[i];
+		if (kd[c] && kc[c])
+			return c;
+	}
+}
+
+function doWithGrasped(fn)
+{
+	var arr = getGrasping();
+	if (!arr) return;
+
+	$.each(grasped, function(i, g)
+	{
+		fn(g);
+	});
+}
+
+var g_camX = 0;
+var g_camY = 0;
+var g_camZoom = 1;
+
+function addCamPosition(x, y)
+{
+	g_camX += x;
+	g_camY += y;
+
+	updateStageTransform();
+}
+
+function setCamPosition(x, y)
+{
+	g_camX = x;
+	g_camY = y;
+
+	updateStageTransform();
+}
+function camZoomIn(f) { setCamZoom(g_camZoom*f); }
+function camZoomOut(f) { setCamZoom(g_camZoom/f); }
+function setCamZoom(z)
+{
+	if (g_camY == currentMaxY())
+		g_camY = 9999;	// snap to bottom
+
+	g_camZoom = z;
+
+	updateStageTransform();
+}
+function resetCam()
+{
+	var w2 = stage.stageWidth/2;
+	var h2 = -stage.stageHeight/2;
+
+	g_camX = w2;
+	g_camY = h2;
+	g_camZoom = 1;
+
+	updateStageTransform();
+}
+
+function screenToWorld(x, y)
+{
+	if (x.x) {
+		y = x.y;
+		x = x.x;
+	}
+
+	var w2 = stage.stageWidth/2;
+	var h2 = stage.stageHeight/2;
+	var z = g_camZoom;
+
+	x = (x-w2)/z + g_camX;
+	y = (y-h2)/z + g_camY;
+
+	return v2(x, y);
+}
+
+function worldToScreen(x, y)
+{
+	if (x.x) {
+		y = x.y;
+		x = x.x;
+	}
+
+	var w = stage.stageWidth;
+	var h = stage.stageHeight;
+
+	x = (x - g_camX)*z + w2;
+	y = (y - g_camY)*z + h2;
+
+	return v2(x, y);
+}
+
+function currentMaxY() { return -(stage.stageHeight/2-10)/g_camZoom; }
+function updateStageTransform()
+{
+	var w = stage.stageWidth;
+	var h = stage.stageHeight;
+
+	var z = g_camZoom;
+	stage.scaleX = z;
+	stage.scaleY = z;
+
+	g_camY = min(g_camY, currentMaxY());
+
+	var x, y;
+	x = w/2 - g_camX * z;
+	y = h/2 - g_camY * z;
+
+	stage.x = x;
+	stage.y = y;
+}
+
+var lockCam = 0;
+
+function processInput()
+{
+	var w = stage.stageWidth;
+	var h = stage.stageHeight;
+
+	var fZoom = 1.05;
+
+	if (kd['NUM*']) resetCam();
+	if (kd['NUM+']) camZoomIn(fZoom);
+	if (kd['NUM-']) camZoomOut(fZoom);
+
+	if (pressed('C')) lockCam = !lockCam;
+	if (lockCam && g_lastUsedObj)
+	{
+		var p = g_lastUsedObj.p;
+		setCamPosition(p.x, p.y);
+	}
+
+	if (pressed('P')) add_('player');
+
+	if (kkd('W')) add_('water');
+	if (kkd('O')) add_('oil');
+	if (kkd('H')) add_('honey');
+	if (kkd('Q')) add_('snow');
+	if (kkd('A')) add_('air');
+
+	if (kkd('T')) add_('tree');
+	if (kkd('G')) add_('grass');
+	if (kkd('L')) add_('leafs');
+	if (kkd('V')) add_('lava');
+
+	if (kkd('D')) add_('dirt');
+	if (kkd('R')) add_('rocks');
+	if (kkd('S')) add_('sand');
+	if (kkd('I')) add_('iron');
+
+	var num = pressedAny('1', '2', '3', '4', '5', '6', '7', '8', '9');	// null may not work coz '0'==false
+	if (num)
+	{
+		var lvl = 'lvl'+num;
+		if (kd['SHIFT'])	saveLvl('confirm', lvl);
+		else				loadLvl(lvl);
+	}
+
+	if (pressed('N'))
+	{
+
+		if (kd['SHIFT'])	dynamify(getGrasping(), arrHovered);
+		else				solidify(getGrasping(), arrHovered);
+	}
+
+	if (pressed('M'))
+	{
+		if (kd['SHIFT'])	unmeld(getGrasping(), arrHovered);
+		else				meld(getGrasping(), arrHovered);
+	}
+
+	if (pressed('X'))
+		remove(getGrasping(), arrHovered);
+
+	if (kd['Z'])
+	{
+		var c = v2(w/2, h/2);
+		g_nGravity = v2dirTo(c, mousePos);
+		drawLine(mousePos, c, 'fff');
+	}
+
+	if (kd['NUM0']) g_timeMult = 0;
+	if (kd['NUM1']) g_timeMult = 0.005;
+	if (kd['NUM2']) g_timeMult = 0.02;
+	if (kd['NUM3']) g_timeMult = 0.05;
+	if (kd['NUM4']) g_timeMult = 0.2;
+	if (kd['NUM5']) g_timeMult = 0.5;
+	if (kd['NUM6']) g_timeMult = 1.0;
+
+	var add = v2(0, 0);
+	var f = fKeys;
+	var cf = 0;
+
+	if (kd['SHIFT'])
+	{
+		f *= fShift;
+	}
+	if (kd['UP']) { add.y = -f; cf = 1; }
+	if (kd['DN']) { add.y = +f; cf = 1; }
+	if (kd['LT']) { add.x = -f; cf = 2; }
+	if (kd['RT']) { add.x = +f; cf = 3; }
+
+
+	// normalize diagonal speed
+	if (v2len(add)) add = v2mult(v2norm(add), f);
+
+	c0 = null;
+	if (g_lastUsedObj)
+		c0 = g_lastUsedObj;
+	else
+	$.each(circles, function(i, c)
+	{
+		if (c.m.name == 'player')
+		{
+			c0 = c;
+			return false;
+		}
+	});
+
+	// follow player
+	if (g_lastUsedObj && g_lastUsedObj.m.name=='player')
+	$.each(circles, function(i, c)
+	{
+		if (c.m.name != 'player' || c==g_lastUsedObj) return;
+		var a = v2dirTo(c.p, g_lastUsedObj.p);
+		v2multMe(a, 900*dt);
+		c.impulse(a);
+		usePlayerFrames(c);
+	});
+
+	usePlayerFrames(c0);
+
+	if (kd['E'])
+	{
+		var earthquake = v2rnd(50, 100);
+		$.each(circles, function(i,c)
+		{
+			if (c.mass)
+				c.impulse( earthquake );
+		});
+	}
+
+	if (c0)
+		c0.impulse(add);
+
+	kc = [];
+	kx = [];
+}
+
+function usePlayerFrames(c)
+{
+	if (!c || !c.o || !c.o instanceof MBitmap)
+		return;
+
+	var up = -c.v.y;
+	var dn = c.v.y;
+	var lt = -c.v.x;
+	var rt = c.v.x;
+
+	var cf = 0;
+	var mx = maxn(up, dn, lt, rt);
+	if (mx==up || mx==dn) cf = 1;
+	if (mx==lt) cf = 2;
+	if (mx==rt) cf = 3;
+	if (mx==0) cf = 0;
+
+	c.o.currentFrame = cf;
+}
+
+
+
+////////////////////////////////////////////////////////
+// GRID
+
+function drawGrid(on)
+{
+	if (!on) return;
+	if (!g_grid) return;
+
+	var w = stage.stageWidth;
+	var h = stage.stageHeight;
+
+	var mn = p2gpos( v2min(g_gridMin, screenToWorld(0, 0)) );
+	var mx = p2gpos( v2max(g_gridMax, screenToWorld(w, h)) );
+	v2addMexy(mx, 1, 1);
+
+	var s = g_gridStep;
+	var h = s/2;	// half step
+
+	for (var x=mn.x; x <= mx.x; x++)
+		drawLine(x*s, mn.y*s, x*s, mx.y*s, 'aaa');
+
+	for (var y=mn.y; y <= mx.y; y++)
+		drawLine(mn.x*s, y*s, mx.x*s, y*s, 'aaa');
+
+	var arr = [];//getNearby(mousePos, 0);
+	for (var i=0; i < arr.length; i++)
+	{
+		var A = arr[i];
+
+		drawCircle(A.p, g_radius, '5f5');
+		drawLine(mousePos, A.p, 'aaa');
+	}
+
+	$.each(g_gridDyn, function(i, cell)
+	{
+		if (!cell || !cell.length) return err('huh?');
+
+		var c = cell[0];
+		var gp = p2gpos(c.p);
+		drawRect(v2mult(gp, s), v2(s, s), 'fff', 0.2);
+	});
+}
+
+function fillGrid()
+{
+	if (!g_useGrid)
+	{
+		g_grid = null;
+		g_gridDyn = null;
+		return;
+	}
+
+	var w = stage.stageWidth;
+	var h = stage.stageHeight;
+	var s = g_gridStep;
+
+	// NOTE: if i wanted to optimize this, i could only recheck objects that moved in the last frame
+	// therefore i would avoid rehashing 1000s of static circles (if it shows up as performance issue)
+
+	g_grid = {};
+	g_gridDyn = {};
+	var mn = v2null();
+	var mx = v2null();
+
+	for (var i=0; i<circles.length; i++)
+	{
+		var c = circles[i];
+		if (c.removed) continue;	// all (not removed)
+
+		var x = Math.floor(c.p.x/s);		// calc index
+		var y = Math.floor(c.p.y/s);
+
+		if (mn.x > x) mn.x = x;		// keep min/max
+		if (mn.y > y) mn.y = y;
+		if (mx.x < x) mx.x = x;
+		if (mx.y < y) mx.y = y;
+
+		var k = x+'-'+y;			// key = "X-Y"
+
+		if (!g_grid[k]) g_grid[k] = [];
+		g_grid[k].push(c);
+
+		if (!c.mass) continue;
+
+		if (!g_gridDyn[k]) g_gridDyn[k] = [];
+		g_gridDyn[k].push(c);
+	}
+
+	// mult by step
+	g_gridMin = v2multxy(mn, s, s);
+	g_gridMax = v2multxy(mx, s, s);
+}
+
+var errLast;
+function err(s, ret)
+{
+	var now = time();
+	if (errLast && now-errLast>100)
+		console.log(s);
+
+	errLast = now;
+	return ret;
+}
+
+// position is usual world XY
+// radius is radius in which we want to check collision
+// iSelf is ORDER of self, so it only returns higher ORDERs (or leave empty if u want all)
+// dynamicOnly is what it says
+function getNearby(pos, radius, iSelf, dynamicOnly)
+{
+	if (abs(pos.x)+abs(pos.y) > 999999) return err('getNearby wtf', []);
+	if (typeof iSelf!='number') iSelf = -1;
+
+	// calc min/max indices of grid
+	var r = radius;
+	var s = g_gridStep;
+
+	var mn = v2subxy(pos, r, r);
+	var mx = v2addxy(pos, r, r);
+
+	return getInAABB(mn, mx, dynamicOnly, iSelf);
+}
+
+var g_aabbArea;
+function getInAABB(mn, mx, dynamicOnly, iSelf)
+{
+	// if no grid - this may become very slow with big levels
+	if (!g_grid || !g_gridDyn)
+	{
+		g_aabbArea = -1;
+		return getInAABB_noGrid(mn, mx, dynamicOnly, iSelf);
+	}
+
+	if (typeof iSelf!='number') iSelf = -1;
+
+	mn = p2gpos(mn);
+	mx = p2gpos(mx, 'up');
+
+	// grid step has to be as big as maximum radius
+	// that way, we wont miss circles, when we add +1 step to each side of area we are checking
+	v2addMexy(mn, -1, -1);
+	v2addMexy(mx, 1, 1);
+
+	var arr = [];
+
+	var s = g_gridStep;
+	var df = v2sub(mx, mn);
+	g_aabbArea = df.x * df.y;
+
+	for (var y=mn.y; y<mx.y; y++)
+	{
+		for (var x=mn.x; x<mx.x; x++)
+		{
+			var g = dynamicOnly ? g_gridDyn : g_grid;
+			var k = Math.floor(x)+'-'+Math.floor(y);
+			var gArr = g[k];
+			if (!gArr) continue;
+
+			for (var i=0; i<gArr.length; i++)
+			{
+				var c = gArr[i];
+
+				if (!c) { err('wtf'); continue; }
+				if (c.order <= iSelf) continue;
+				if (c.removed) continue;
+
+				arr.push(c);
+			}
+		}
+	}
+
+	return arr;
+}
+
+
+function p2gpos(p, up)	{ up=up?1:0; return v2(up+Math.floor(p.x/g_gridStep), up+Math.floor(p.y/g_gridStep)); }
+function p2gkey(p)		{ return Math.floor(p.x/g_gridStep)+'-'+Math.floor(p.y/g_gridStep); }
+function xy2gkey(x, y)	{ return Math.floor(x/g_gridStep)+'-'+Math.floor(y/g_gridStep); }
+
+
+
+function getInAABB_noGrid(mn, mx, dynamicOnly, iSelf)
+{
+	if (typeof iSelf!='number') iSelf = -1;
+
+	var arr = [];
+	for (var i=0; i < circles.length; i++)
+	{
+		var c = circles[i];
+		if (!c) { err('wtf'); continue; }
+		if (c.removed) continue;
+		if (c.order <= iSelf) continue;
+		if (dynamicOnly && !c.mass) continue;
+
+		var bOut = (c.p.x < mn.x || c.p.x > mx.x || c.p.y < mn.y || c.p.y > mx.y);
+		if (!bOut)
+			arr.push(c);
+	}
+	return arr;
+}
+
+// GRID
+/////////////////////////////////////////////////////////////
+
+
+
+
+function f2rgb(r, g, b)
+{
+	return to_i255(r)*256*256 +
+			to_i255(g)*256 +
+			to_i255(b);
+}
+function heatclr(f01, add)
+{
+	add = add || 0;
+	// input is f=<0,1>
+	var f = minmax(f01, 0, 1);
+	f *= 2;
+
+	var r=0,g=0,b=0;
+	if (f<1)
+	{
+		g = f*2;
+		b = 2-f*2;
+	}
+	else
+	{
+		f -= 1;
+		r = f*2;
+		g = 2-f*2;
+	}
+	var clr = f2rgb(r+add, g+add, b+add);
+	return clr;
+}
+
+// in best case (when nothing is removed), it just returns original array
+function onlyUnremoved(arr)
+{
+	var i;
+	for (i=0; i < arr.length; i++)
+		if (arr[i].removed) break;
+
+	// nothing changed, return original array
+	if (i==arr.length) return arr;
+
+	nicelog('onlyUnremoved - something has changed');
+
+	var arrUnr = [];
+	for (i=0; i < arr.length; i++)
+	{
+		var a = arr[i];
+		if (!a.removed) arrUnr.push(a);
+	}
+
+	return arrUnr;
+}
+
+
+function getScreenAABB(reserveRatio)
+{
+	var w = stage.stageWidth;
+	var h = stage.stageHeight;
+
+	var mn = screenToWorld(0, 0);
+	var mx = screenToWorld(w, h);
+
+	var vR = v2sub(mx, mn);
+	v2multMe(vR, reserveRatio);
+
+	v2subMe(mn, vR);
+	//if (vR.y < 0) vR.y = 0;		// if testing with smaller rect, i want it to touch the bottom
+	v2addMe(mx, vR);
+
+	return {mn:mn, mx:mx};
+}
+
+var frame_count = 0;
+var frame_collisions;
+var frame_collision_checks;
+var frame_spring_checks;
+
+var activeScreenRatio = -0.0;
+var visibleScreenRatio = 0.01;
+var circlesActive = [];
+
+var runFrames = -1;
+
+function onEF()
+{
+	frame_count++;
+	applyGlobalParamsLocally();
+
+	//if (! (frame_count%10) )
+	{
+		if (dbg) dbg.clear();					// lines, circles
+		while (dbgs.children.length)	// texts
+			dbgs.removeChildAt(0);
+	}
+
+	stage.removeChild(dbgs);	// on top
+	stage.addChild(dbgs);
+
+	framecount++;
+
+	dtFrame = get_dt();
+	dtFrame = 1/60 * 0.5;
+	dtFrame *= g_timeMult;
+
+
+	processMouse();
+	processInput();
+
+	frame_collisions		= 0;
+	frame_collision_checks	= 0;
+	frame_spring_checks		= 0;
+
+	//////////////////////////////////////////
+
+	// remove removed
+	circles = onlyUnremoved(circles);
+
+	fillGrid();
+
+	var aabb = getScreenAABB(activeScreenRatio);
+	//drawRectO(aabb.mn, aabb.mx, 'f00');
+
+	circlesActive = getInAABB(aabb.mn, aabb.mx); // mencari circle aktif dalam grid
+	g_cellsActive = g_aabbArea;
+
+	circlesActive = sortDynamicsFirst(circlesActive);
+
+	for (var i=0; i < circles.length; i++) circles[i].active = false;
+	for (var i=0; i < circlesActive.length; i++) circlesActive[i].active = true;
+
+	var run = true;
+	if (runFrames > -1)
+	{
+		if (runFrames==0) run = false;
+		else runFrames--;
+	}
+
+	if (run)
+		simulatePhysics( dtFrame );
+
+	drawHeatVelocity( g_drawHeat );
+
+	debugTexts();
+
+	//test_drawPoly();
+
+	/* toto uz je inde, a asi to sem treba presunut
+
+	// update positions in engine
+	var cc = circlesActive;
+	cc = circles;	// tmp
+	for (var i=0; i < cc.length; i++)
+	{
+		var c = cc[i];
+		c.updateEngineData();
+	}
+	*/
+
+	drawGrid(g_drawGrid);
+
+	if (g_jointWidth)
+	{
+		$.each(joints, function(i, j)
+		{
+			j.dbg_drawJoints();
+		});
+	}
+}
+
+/*
+	na masu pasivnych guliciek pouzit algoritmus, ktory ich sceli do polygonu
+
+	moct nakreslit polygon, ktory nebude mat realne data o gulickach v sebe, ale bude sa dat z neho odlupovat (or kopat donho dole)
+
+	podla nakresleneho polygonu by sa mali zobrazit gulicky po krajoch (default v zoome 1), a vnutro vyfarbit
+
+	neskor by sa malo dat odlupat z neho, a tak sa bude upravovat polygon podla odobratej gulicky
+
+*/
+function test_drawPoly()
+{
+	var first;
+	var last;
+	$.each(circles, function(i, c)
+	{
+		if (!i) first=c;
+
+		line(last, c);
+
+		last = c;
+	});
+
+	line(first, last);
+
+	function line(a, b)
+	{
+		if (!a || !b) return;
+		drawLine(a.p, b.p, '000', 2);
+	}
+}
+
+function debugTexts()
+{
+	// removing/melding/solidifying/dynamifying/etc EVERYTHING requires DOUBLE-PRESS
+	var confirmAction = currentlyInLastSec();
+	if (confirmAction)
+		confirmAction = '<b style="color: red;">'+confirmAction.toUpperCase()+' ALL?</b>';
+
+	$('#sph').html('<b>fluid</b>'+
+					confirmAction +
+					'g: <b>'+g_gravity+'</b>'+
+					'maxVel: <b>'+nice(sqrt(g_currMaxVel2))+'</b>'+
+					'#cellsActive: <b>'+g_cellsActive+'</b>'+
+					'maxPress: <b>'+nice(g_maxPressure)+'</b>'+
+					'maxPressNear: <b>'+nice(g_maxPressureNear)+'</b>'+
+					/*'smoothR: <b>'+g_sphRadius+'</b>'+
+					'stiff: <b>'+g_sphStiff+'</b>'+
+					'stiffNear: <b>'+g_sphStiffNear+'</b>'+
+					'restDensity: <b>'+g_sphRestDensity+' ('+nice(g_avgSphDensity)+')'+'</b>'+
+					*/
+					'<span class="fright">'+circles.length+'xO &nbsp;'+g_fps+'</span>'+
+					'');
+	$('#fps').html('fps: '+g_fps);
+	$('#tests').html('collisions: '+frame_collisions+
+					'<br>checks coll: '+frame_collision_checks+
+					'<br>checks spring: '+frame_spring_checks+
+					'');
+}
+
+function drawHeatVelocity(enabled)
+{
+	var cc = circles[0];
+	if (!cc) return;
+
+	if (enabled)
+	{
+		$.each(circles, function(i, c)
+		{
+			//if (!c.mass) return;
+
+			var f = 0;
+			switch(0) {
+				case 0: f = v2len( c.v ); break;
+				case 1: f = c._seqI/1000; break;
+				case 2: f = c._seqIabs/1000; break;
+				case 3: f = c.sphDens*100; break;
+				case 4: f = c.sphDensNear*100; break;
+				case 5: f = c.pressure(); break;
+				case 6: f = c.pressureNear(); break;
+			}
+
+			f /= g_HeatMax * 100;
+			if (!c.active)
+				c.setHeat(f);
+			else
+				c.unsetHeat();
+		});
+	}
+	else
+	{
+		if (!cc.spriteHeat) return;
+
+		$.each(circles, function(i, c)
+		{
+			c.unsetHeat();
+		});
+	}
+}
+
+/*
+replace $.each with for loop
+FIND:
+\$\.each\(([A-z]+),[ ]+function[ \t]*\(i, ([a-z])\)([ \n\t]+)\{([ \n\t]+)
+REPLACE:
+for \(var i=0; i < \1.length; i++\)\3{\4var \2 = \1[i];\4
+*/
+
+// dahulukan dinamik circle (water, oil ) di bagian pertama array
+function sortDynamicsFirst(arr)
+{
+	var i;
+	var currentlyDynamics = true;
+	for (i=0; i < arr.length; i++)
+	{
+		var c = arr[i];
+		if (currentlyDynamics && !c.mass)
+			currentlyDynamics = false;
+
+		if (!currentlyDynamics && c.mass)
+			break;
+	}
+
+	// dont have to sort if it didnt break
+	if (i==arr.length) return arr;
+
+	/////////////////////////////////////
+	// otherwise SORT
+
+	var sorted = [];
+	for (var i=0; i < arr.length; i++)
+	{
+		var c = arr[i];
+		if (c.mass) sorted.push(c);
+	}
+
+	for (var i=0; i < arr.length; i++)
+	{
+		var c = arr[i];
+		if (!c.mass) sorted.push(c);
+	}
+
+	for (var i=0; i < sorted.length; i++)
+	{
+		sorted[i].order = i;
+	}
+
+	return sorted;
+}
+
+var g_avgSphDensity = 0;
+var g_maxPressure = 0;
+var g_maxPressureNear = 0;
+function simulatePhysics(substep_dt)
+{
+	dt = substep_dt;
+	pairs = [];
+	g_avgSphDensity		= 0;
+	g_numSph			= 0;
+	g_maxPressure		= 0;
+	g_maxPressureNear	= 0;
+	g_currMaxVel2		= 0;
+
+	///////////////////////////////////////////////////
+	// PARTICLE BASICS
+	// inisialisasi 
+	for (var i=0; i < circles.length; i++)
+	{
+		var c = circles[i];
+		c.frameStart(); // sph dens dan sph near dibuat sama dengan nol
+	}
+
+	for (var i=0; i < circlesActive.length; i++)
+	{
+		var c = circlesActive[i];
+		if (!c.mass) break; // hanya diberlakukan untuk air, oli, dan partikel-partikel yang memiliki massa
+							// setelah disorting... maka pada array circlesActive yang dahulu muncul adalah dinamik partikel 
+
+		c.gravity();
+		c.moveByVelocity();
+
+		c.odrazOdStran(); // jika partikel melewati batas dinding.... pukul kembali 
+	}
+
+/*
+	if (g_bMelding)
+	for (var i=0; i < circles.length; i++)
+	{
+		var c = circles[i];
+		c.checkNewJoints(true);	// true=only check orderly later
+	}
+*/
+
+	// find pairs
+	if (dt)
+	for (var i=0; i < circlesActive.length; i++)
+	{
+		var c = circlesActive[i];
+		// since circles are sorted with dynamics first
+		// we can stop iterating when we find static circle
+		if (!c.mass) break;
+
+		c.findPairs(); // cari  pasangan 
+	}
+
+	///////////////////////////////////////////////////
+	var addActive = [];
+	var addActiveEnd = [];
+	// smooth collisions
+	for (var i=0; i < pairs.length; i++)
+	{
+		var p = pairs[i];
+		var A = p.A;
+		var B = p.B;
+
+		A.sphCalculateDensity(B, p); // hitung densitas dan dens-near untuk partikel yag berinteraksi
+		
+		//if (!A.active) (A.mass?addActive:addActiveEnd).push(A);
+		//if (!B.active) (B.mass?addActive:addActiveEnd).push(B);
+	}
+	var arrX = [];
+	arrX.append(addActive);
+	arrX.append(circlesActive);
+	//arrX.append(addActiveEnd);
+	//circlesActive = arrX;
+
+	for (var i=0; i < circlesActive.length; i++)
+	{
+		var c = circlesActive[i];
+		//if (!c.mass) break;
+
+		c.sphCalculatePressure(); // hitung tekanan dan pressure-near
+	}
+	for (var i=0; i < pairs.length; i++)
+	{
+		var p = pairs[i];
+		var A = p.A;
+		var B = p.B;
+		A.solveCollision(B, p); // gunakan SPH untuk partikel dinamik  dan gaya repulsive untuk partikel static 
+	}
+
+	for (var i=0; i < circlesActive.length; i++)
+	{
+		var c = circlesActive[i];
+		if (!c.mass) break;
+
+		if (c.sph)
+			c.calcVelocityFromDisplacement();
+	}
+
+	///////////////////////////////////////////////////
+	// COLLISIONS - RIGID
+	if (0)
+	
+	for (var i=0; i < pairs.length; i++)		// <-- wtf is this shit?
+	{
+		var p = pairs[i];
+		// compute toTouch to slow particles before collisions
+		var A = p.A;
+		var B = p.B;
+		if (!A.sph && !B.sph)
+		{
+			var v = v2sub(A.v, B.v);
+			v2multMe( v, dt/(A.invM+B.invM)*10 );
+			v2addMe( A.v, v2mult(v, A.invM) );
+			v2addMe( B.v, v2mult(v, B.invM) );
+		}
+	}
+
+	///////////////////////////////////////////////////
+
+	for (var i=0; i < circles.length; i++)
+	{
+		var c = circles[i];
+		if (!c.links.length) continue;
+		c.prepareRK();
+	}
+
+	// only active joints (either of its circles is active)
+	var jointsA = [];	// active
+	for (var i=0; i < joints.length; i++) joints[i].active = false;
+	for (var i=0; i < joints.length; i++)
+	{
+		var j = joints[i];
+		if (j.A.active || j.B.active)
+			jointsA.push(j);
+		//else drawLine(j.A.p, j.B.p, '000', 3);	// show inactive joints
+	}
+
+
+	// JOINTS
+	for (var i=0; i < jointsA.length; i++) { jointsA[i].updateRK(1); }
+	for (var i=0; i < jointsA.length; i++) { jointsA[i].updateRK(2); }
+	for (var i=0; i < jointsA.length; i++) { jointsA[i].updateRK(3); }
+	for (var i=0; i < jointsA.length; i++) { jointsA[i].updateRK(4); }
+
+	for (var i=0; i < jointsA.length; i++)
+	{
+		var j = jointsA[i];
+		j.update();
+
+		if (j.isBroken()) j.remove();
+	}
+	joints = onlyUnremoved(joints);
+
+	for (var i=0; i < circlesActive.length; i++)
+	{
+		var c = circlesActive[i];
+		if (!c.mass) break;
+
+		if (!c.links.length) continue;
+
+		v2addMe(c.v, c.a);
+
+		//drawLineN(c.p, v2mult(c.a, 0.5), 'fff', 3);
+		c.a = v2(0, 0);
+	}
+
+	////////////////////////////////////////////
+	// VISIBILITY
+	var w = stage.stageWidth;
+	var h = stage.stageHeight;
+
+	// calc AABB
+	var aabb = getScreenAABB(visibleScreenRatio);
+	var mn = aabb.mn;
+	var mx = aabb.mx;
+
+	// NOT visible treba vsetkym circles
+	// a visible by stacilo aj len aktivnym z aabb, ale to mi moc nepomoze
+	for (var i=0; i < circles.length; i++)
+	{
+		var c = circles[i];
+
+		var bOut = (c.p.x < mn.x || c.p.x > mx.x || c.p.y < mn.y || c.p.y > mx.y);
+		if (bOut)
+		{
+			c.o.visible = false;
+		}
+		else
+		{
+			c.o.visible = true;
+			c.updateEngineData();
+		}
+	}
+
+	g_avgSphDensity = g_numSph?
+						g_avgSphDensity/g_numSph:
+						0;
+
+}
+
+function drawText(x, y, s, clr, nice_number, optionalStage)
+{
+	if (typeof x.x != 'undefined')
+	{
+		nice_number=clr;
+		clr=s;
+		s=y;
+		y=x.y;
+		x=x.x;
+	}
+
+	nice_number = 1; // tmp
+	if (nice_number && typeof s == 'number')
+		s = nice(s);
+
+	var fontSize = 20;
+
+	var t = new TextField();
+	clr = normalizeClr(clr);
+	t.setTextFormat( new TextFormat("Arial", fontSize, clr) );
+
+	if (!optionalStage) optionalStage = dbgs;
+	optionalStage.addChild(t);
+
+	t.setText(s);
+	t.x = x;
+	t.y = y;
+}
+
+function drawCircleO(x, y, r, clr, w, parts)
+{
+	var xIsV = (typeof x.x != 'undefined');
+	if (xIsV)
+	{	// ak je to vektor..
+		parts=w;
+		w=clr;
+		clr=r;
+		r=y;
+		y=x.y;
+		x=x.x;
+	}
+	_drawCircleO(x, y, r, clr, w, parts);
+}
+
+function _drawCircleO(x, y, r, clr, w, parts)
+{
+	parts = parts || 20;
+
+	var arr = getCirclePoints(parts, r, x, y);
+	var len = arr.length;
+	for (var i=0; i < len; i++)
+	{
+		var a = arr[i];
+		var b = arr[ (i+1)%len ];
+		drawLine(a, b, clr, w);
+	}
+}
+function getCirclePoints(parts, r, x, y)
+{
+	var arr = [];
+	x = x || 0;
+	y = y || 0;
+	r = r || 1;
+
+	var start = v2(0, -r);
+	for (var i=0; i <= parts; i++)
+	{
+		var n = v2rot(start, i * (360/parts));
+		arr.push(n);
+	}
+	if (x || y)
+	{
+		for (var i=0; i < arr.length; i++)
+			v2addMe( arr[i], v2(x, y) );
+	}
+	return arr;
+}
+
+
+function drawCross(v, r, clr, w)
+{
+	drawLineN(v.x-r, v.y, r*2, 0, clr, w);
+	drawLineN(v.x, v.y-r, 0, r*2, clr, w);
+}
+function drawCrossBW(v, r)
+{
+	drawLineN(v.x-r, v.y, r*2, 0, '000');
+	drawLineN(v.x, v.y-r, 0, r*2, 'fff');
+}
+
+// 		drawLineN(vA, vN, c, w)
+//		drawLineN(vA, nx, ny, c, w)
+function drawLineN(ax, ay, bx, by, c, w, perp)
+{
+	var axIsV = (typeof ax.x != 'undefined');
+	if (axIsV) {	// ak je to vektor..
+		perp=w;
+		w=c;		// vaha je uz v 'c', takze to treba posunut..
+		c=by;
+		by=bx;
+		bx=ay;
+		ay = ax.y;
+		ax = ax.x;
+	}
+	var bxIsV = (typeof bx.x != 'undefined');
+	if (bxIsV) {
+		perp=w;
+		w=c;
+		c=by;
+		by = bx.y;
+		bx = bx.x;
+	}
+
+	// perpendicular
+	if (perp)
+	{
+		var x = bx;
+		var y = by;
+		if (perp=='r' || perp==1) {
+			bx = -y;	// right = 'r' OR 1
+			by = x;
+		}
+		else {
+			bx = y;		// left = anything else
+			by = -x;
+		}
+	}
+
+	_drawLine(ax, ay, ax+bx, ay+by, c, w);
+}
+
+// 		drawLine(vA, vB, c, w)
+//		drawLine(vA, bx, by, c, w)
+function drawLine(ax, ay, bx, by, c, w)
+{
+	var axIsV = (typeof ax.x != 'undefined');
+	if (axIsV) {	// ak je to vektor..
+		w=c;		// vaha je uz v 'c', takze to treba posunut..
+		c=by;
+		by=bx;
+		bx=ay;
+		ay = ax.y;
+		ax = ax.x;
+	}
+	var bxIsV = (typeof bx.x != 'undefined');
+	if (bxIsV) {
+		w=c;
+		c=by;
+		by = bx.y;
+		bx = bx.x;
+	}
+
+	_drawLine(ax, ay, bx, by, c, w);
+}
+
+function _drawLine(x, y, x2, y2, clr, w)
+{
+	if (!w) w = 1;
+	clr = normalizeClr(clr);
+
+	dbg.lineStyle(w, clr);
+	dbg.moveTo(x, y);
+	dbg.lineTo(x2, y2);
+
+	return;	// new ivank has working width
+
+	// fix, kedze to nejde..
+	if (w > 1)
+	{
+		var a = v2(x, y);
+		var b = v2(x2, y2);
+		var n = v2dirTo(a, b);
+		for (var i=1; i < w/2+1; i++)
+		{
+			var dx = -n.y * i;
+			var dy = n.x * i;
+			drawLine(x+dx, y+dy, x2+dx, y2+dy, clr);
+			drawLine(x+dx, y-dy, x2+dx, y2-dy, clr);
+		}
+	}
+}
+
+function drawRectAB(x, y, bx, by, clr, alpha)
+{
+	var xIsV = (typeof x.x != 'undefined');
+	if (xIsV) {	// ak je to vektor..
+		alpha=clr;
+		clr=by;
+		by=bx;
+		bx=y;
+		y=x.y;
+		x=x.x;
+	}
+	var bxIsV = (typeof bx.x != 'undefined');
+	if (bxIsV) {
+		alpha=clr;
+		clr=by;
+		by=bx.y;
+		bx=bx.x;
+	}
+
+	_drawRect(x, y, bx-x, by-y, clr, alpha);
+}
+function drawRect(x, y, w, h, clr, alpha)
+{
+	var xIsV = (typeof x.x != 'undefined');
+	if (xIsV) {	// ak je to vektor..
+		alpha=clr;
+		clr=h;
+		h=w;
+		w=y;
+		y=x.y;
+		x=x.x;
+	}
+	var wIsV = (typeof w.x != 'undefined');
+	if (wIsV) {
+		alpha=clr;
+		clr=h;
+		h=w.y;
+		w=w.x;
+	}
+
+	_drawRect(x, y, w, h, clr, alpha);
+}
+function drawRectO(ax, ay, bx, by, clr)
+{
+	var axIsV = (typeof ax.x != 'undefined');
+	if (axIsV) {	// ak je to vektor..
+		clr=by;
+		by=bx;
+		bx=ay;
+		ay=ax.y;
+		ax=ax.x;
+	}
+	var bxIsV = (typeof bx.x != 'undefined');
+	if (bxIsV) {
+		clr=by;
+		by=bx.y;
+		bx=bx.x;
+	}
+
+	_drawRectO(ax, ay, bx, by, clr);
+}
+
+function _drawRectO(x, y, x2, y2, clr)
+{
+	// A---|
+	// |___B
+	drawLine(x, y, x2, y, clr);
+	drawLine(x, y2, x2, y2, clr);
+
+	drawLine(x, y, x, y2, clr);
+	drawLine(x2, y, x2, y2, clr);
+}
+function _drawRect(x, y, w, h, clr, alpha)
+{
+	if (typeof alpha == 'undefined') alpha = 1;
+	clr = normalizeClr(clr);
+
+	dbg.beginFill(clr, alpha);
+	dbg.drawRect(x, y, w, h);
+}
+
+
+
+function drawCircle(x, y, r, c, alpha)
+{
+	var xIsV = (typeof x.x != 'undefined');
+	if (xIsV)	// ak je to vektor..
+	{
+		alpha=c;
+		c=r;
+		r=y;
+		y=x.y;
+		x=x.x;
+	}
+	_drawCircle(x, y, r, c, alpha);
+}
+
+function _drawCircle(x, y, r, c, alpha)
+{
+	alpha = alpha || 1;
+	c = normalizeClr(c);
+
+	dbg.beginFill(c, alpha);
+	dbg.drawCircle(x, y, r);
+}
+
+function normalizeClr(c)
+{
+	if (typeof c == 'string' && c.length==3)
+	{
+		function val(ch) {
+			ch = parseInt(ch, 16);
+			ch = minmax(ch, 0, 15) * 17;
+			return parseInt( ch.toString(16), 16 );
+		}
+		var i = 0;
+		i += val( c[0] ) * 256*256;
+		i += val( c[1] ) * 256;
+		i += val( c[2] );
+		c = i;
+	}
+	return c;
+}
+
+var last_fps_change = 0, fps_sum=0, fps_num=0;
+var last_frame;
+function get_dt()
+{
+	var now = time() * 0.001;
+
+	if (!last_frame)
+		last_frame = now;
+
+	var dt = (now - last_frame);
+
+	// fps
+	var fps = to_i(1/(max(dt, 0.001)));
+	fps_sum += fps;
+	fps_num++;
+
+	if (abs(last_fps_change - now) > 0.1)
+	{
+		last_fps_change = now;
+		g_fps = to_i(fps_sum / fps_num);
+		fps_sum = 0;
+		fps_num = 0;
+	}
+	//
+
+	dt = minmax(dt, 0.000001, 0.1);
+	last_frame = now;
+	return dt;
+}
+
+
+///////////////////////////////////////////////////////////////////
+// libs
+function floor(f)	{ return Math.floor(f); }
+function min(a, b)	{ return Math.min(a, b); }
+function max(a, b)	{ return Math.max(a, b); }
+function maxn() {
+	if (!arguments.length) return;
+	var mx = arguments[0];
+	for (var i=1; i < arguments.length; i++)
+		mx = max(mx, arguments[i]);
+	return mx;
+}
+
+function minmax(f, mn, mx)
+{
+	if (f > mx) return mx;
+	if (f < mn) return mn;
+	return f;
+}
+function minmaxFix(f, mn, mx)
+{
+	if (!isOk(f)) return (mn+mx)/2;
+	return minmax(f, mn, mx);
+}
+
+function absmin(a, b) { return sign(a) * min( abs(a), b ); }
+function absmax(a, b) { return sign(a) * max( abs(a), b ); }
+function abspow(a, b) { return sign(a) * pow( abs(a), b ); }
+
+function abs(f)		{ return Math.abs(f); }
+function sqrt(f)	{ return Math.sqrt(f); }
+function sign(f)	{ return f<0?-1:1; }
+function pow(f, e)	{ return Math.pow(f, e); }
+function powe(f)	{ return pow(2.71828183, f); }
+function pow10(f)	{ return pow(10, f); }
+function logn(f, n)	{ return loge(f) / loge(n); }
+function loge(f)	{ return Math.log(f); }
+function log10(f)	{ return loge(f) / Math.log(10); }
+function minmax(f, mn, mx) {
+	if (f<mn) return mn;
+	if (f>mx) return mx;
+	return f;
+}
+function to_i(f)	{ return parseInt(f); }
+function to_i255(f)	{ return parseInt( minmax(f,0,1)*255 ); }
+function fixed(f, dec) { return parseFloat( f.toFixed(dec) ); }
+
+function nicelog()
+{
+	var arr = arguments;
+
+	var s = '';
+	var len = 0;
+	for (var i=0; i < arr.length; i++)
+	{
+		if (typeof arr[i] != 'undefined')
+			len = i+1;
+	}
+
+	for (var i=0; i < len; i++)
+	{
+		var a = arr[i];
+		var notFirst = i>0;
+		var isNumber = (typeof a == 'number');
+		var previousWasString = notFirst && (typeof arr[i-1] == 'string');
+
+		if (isNumber)
+		{
+			a = nice(a);
+			a = (a+'').normalizeLength(10);
+		}
+
+		// vector
+		if (typeof a.x != 'undefined')
+			a = a.x+' '+a.y;
+
+		if (!(isNumber && previousWasString))
+			a = ' '+a;
+
+		s += a;
+	}
+
+	console.log(s);
+}
+function nice(f)
+{
+	var a = abs(f);
+	if (a>=10)	return fixed(f);
+	if (a>=1)	return fixed(f, 1);
+	if (a>=0.1)	return fixed(f, 2);
+	return fixed(f, 3);
+}
+
+function rndsign()	{ return rndi()?1:-1; }
+function rnd11(f)	{ return rnd(-f, f); }
+
+/* Maksudnya adalah 
+jika dipanggil dengan argument mx, maka kembalikan 
+x + random * (mx -x )
+akan tetapi jika hanya dipanggil dengan argument x 
+makan kembalikan random * x saja. 
+*/
+function rnd(x, mx) 
+{
+	if (typeof x != 'number') x = 1;
+	if (typeof mx == 'number')
+		return x + rnd(mx-x);
+
+	return Math.random()*x;
+}
+
+function rndi(x, mx)
+{
+	if (typeof x != 'number') x = 2;
+	if (typeof mx == 'number')
+		return x + rndi(mx-x);
+
+	return Math.floor( rnd(x) );
+}
+function rndclr() { return rndi(0xffffff); }
+function time()
+{
+	return (new Date).getTime();
+}
+
+function removeAt(arr, i)
+{
+	if (arr)
+	return arr.splice(i, 1);
+}
+function removeEq(arr, x)
+{
+	if (arr)
+	for (var i=0; i < arr.length; i++)
+	{
+		if (arr[i] === x)
+			return arr.splice(i, 1);
+	}
+}
+
+function test_fns()
+{
+	var v = v2(2, 5);
+	return;
+	v = v2mult(v, 4);
+	var n = v2norm(v);
+	v = v2sub(v, n);
+	var d2 = v2len2(v);
+}
+function test_class()
+{
+	var v = new V2(2, 5);
+	return;
+	v.multMe(4);
+	var n = v.norm();
+	v.subMe(n);
+	var d2 = v.len2();
+}
+test_fns();
+test_class();
+
+// ...Me -> v2multMe, etc ma minimalny rozdiel, ale je kratsi zapis
+// trvanie (1000000x):
+// var v = v2(1,2); v = v2mult(v, 5);		1550 1590 1600
+// var v = v2(1,2); v2multMe(v, 5);			1550 1550 1530
+
+//////////////////////////////////////////////////////
+function v2(x, y)		{ return {x:x,			y:y}; }
+function v2c(v)			{ return {x:v.x,		y:v.y}; }
+function v2copy(v)		{ return {x:v.x,		y:v.y}; }
+function v2mult(v, f)	{ return {x:v.x*f,		y:v.y*f}; }
+function v2m(v, f)		{ return {x:v.x*f,		y:v.y*f}; }
+function v2multxy(v,x,y){ return {x:v.x*x,		y:v.y*y}; }
+function v2multV(v, b)	{ return {x:v.x*b.x,	y:v.y*b.y}; }
+function v2div(v, f)	{ return {x:v.x/f,		y:v.y/f}; }
+function v2divV(v, b)	{ return {x:v.x/b.x,	y:v.y/b.y}; }
+function v2add(v, b)	{ return {x:v.x+b.x,	y:v.y+b.y}; }
+function v2sub(v, b)	{ return {x:v.x-b.x,	y:v.y-b.y}; }
+function v2addxy(v, x,y){ return {x:v.x+x,		y:v.y+y}; }
+function v2subxy(v, x,y){ return {x:v.x-x,		y:v.y-y}; }
+function v2inv(v)		{ return {x:-v.x,		y:-v.y}; }
+function v2len(t)		{ return Math.sqrt(t.x*t.x + t.y*t.y); }
+function v2len2(t)		{ return t.x*t.x + t.y*t.y; }
+function v2dist(t, v)	{ var x=t.x-v.x, y=t.y-v.y; return Math.sqrt(x*x+y*y); }
+function v2dist2(t, v)	{ var x=t.x-v.x, y=t.y-v.y; return x*x+y*y; }
+function v2dirTo(t, v)	{ return v2norm(v2sub(v, t)); }
+function v2dot(t, v)	{ return t.x*v.x + t.y*v.y; }
+function v2p(t)			{ return t.x.toFixed(2)+' '+t.y.toFixed(2); }
+function v2null(v)		{ if (v) v.x=v.y=0; else return {x:0, y:0}; }
+function v2min(a, b)	{ return v2( min(a.x,b.x), min(a.y,b.y) ); }
+function v2max(a, b)	{ return v2( max(a.x,b.x), max(a.y,b.y) ); }
+
+function v2norm(v)
+{
+	var len = Math.sqrt(v.x*v.x+v.y*v.y);
+	if (len == 0) len = 1;
+	len = 1/len;
+	return {x: v.x*len, y: v.y*len};
+}
+function v2center(a, b)	{ return v2add( a, v2mult( v2sub(b,a),0.5 ) ); }
+function v2perp(a, f)	{ f=f||1; return v2(-a.y*f, a.x*f); }
+function v2perpL(a)		{ return v2(a.y, -a.x); }
+function v2perpMe(v, f)	{ f=f||1; var y=v.y; v.y=v.x*f; v.x=-y*f; }
+function v2perpMeL(v)	{ var x=v.x; v.x=v.y; v.y=-x; }
+
+function v2pow(v, f)	{ return v2( abspow(v.x, f), abspow(v.y, f) ); }
+function v2powMe(v, f)	{ v.x = abspow(v.x, f); v.y = abspow(v.y, f); }
+
+function v2avg()
+{
+	var v = v2(0, 0);
+	var num = arguments.length;
+
+	for (var i=0; i < num; i++)
+	{
+		var a = arguments[i];
+		v.x += a.x;
+		v.y += a.y;
+	}
+	v2divMe(v, num);
+	return v;
+}
+
+function toRad(deg) { return deg * Math.PI / 180; }
+function toDeg(rad) { return deg / (Math.PI / 180); }
+function v2rot(v, ang)
+{
+	var rad = toRad(ang);
+
+	var c = Math.cos(rad);
+	var s = Math.sin(rad);
+	var x = v.x*c - v.y*s;
+	var y = v.x*s + v.y*c;
+	return v2(x, y);
+}
+// a,b - circles positions
+// m - maxDist
+function v2isCloserThan(a, b, m)
+{
+	var x = a.x-b.x;
+	if (x > m || -x > m) return false;
+
+	var y = a.y-b.y;
+	if (y > m || -y > m) return false;
+
+	var d2 = x*x + y*y;
+	var m2 = m*m;
+
+	return (d2 < m2);
+}
+function v2isFurtherThan(t, v, maxDist)
+{
+	return !v2isCloserThan(t, v, maxDist);
+}
+function v2rnd(mn, mx)
+{
+	return v2( rnd(mn, mx)*rndsign(), rnd(mn, mx)*rndsign() );
+}
+/////////////
+function v2multMe(v, f)		{ v.x*=f;	v.y*=f; }
+function v2divMe(v, f)		{ v.x/=f;	v.y/=f; }
+function v2addMe(v, b)		{ v.x+=b.x;	v.y+=b.y; }
+function v2addMex(v, x)		{ v.x+=x; }
+function v2addMey(v, y)		{ v.y+=y; }
+function v2addMexy(v, x, y)	{ v.x+=x;	v.y+=y; }
+function v2subMe(v, b)		{ v.x-=b.x;	v.y-=b.y; }
+function v2normMe(v)
+{
+	var len = Math.sqrt(v.x*v.x+v.y*v.y);
+	if (len == 0) len = 1;
+	len = 1/len;
+	v.x*=len;
+	v.y*=len;
+}
+//////////////////////////////////////////////////////
+
+
+function V2(x, y)
+{
+	var t = this;
+	t.x = x || 0;
+	t.y = y || 0;
+
+	t.copy = function()
+	{
+		return new V2(t.x, t.y);
+	}
+	t.set = function(x, y)
+	{
+		t.x = x;
+		t.y = y;
+		return this;
+	}
+	t.multMe = function(f)
+	{
+		t.x *= f;
+		t.y *= f;
+		return t;
+	}
+	t.addMe = function(v)
+	{
+		t.x += v.x;
+		t.y += v.y;
+		return t;
+	}
+	t.subMe = function(v)
+	{
+		t.x -= v.x;
+		t.y -= v.y;
+		return t;
+	}
+	t.normalizeMe = function()
+	{
+		var v = normalized(t);
+		t.x = v.x;
+		t.y = v.y;
+		return t;
+	}
+
+	t.len		= function() { return Math.sqrt(t.x*t.x + t.y*t.y); }
+	t.len2		= function() { return t.x*t.x + t.y*t.y; }
+	t.dist		= function(v) { var x=t.x-v.x, y=t.y-v.y; return Math.sqrt(x*x+y*y); }
+	t.dist2		= function(v) { var x=t.x-v.x, y=t.y-v.y; return x*x+y*y; }
+	t.dirTo		= function(v) { return v.sub(t).norm(); }
+
+	// operatory: c=a*f -> c=a.mult(f)
+	t.norm		= function() { return normalized(t); }
+	t.dot		= function(v) { return t.x*v.x + t.y*v.y; }
+	t.mult		= function(f) { return new V2(t.x*f, t.y*f); }
+	t.sub		= function(v) { return new V2(t.x-v.x, t.y-v.y); }
+	t.add		= function(v) { return new V2(t.x+v.x, t.y+v.y); }
+
+	t.isFurtherThan = function(v, maxDist)
+	{
+		var d2 = t.dist2(v);
+		var m2 = maxDist*maxDist;
+
+		if (d2 > m2)
+			return true;
+	}
+
+	function normalized(a)
+	{
+		var len = a.len();
+		var inv = len>0 ? 1/len : 1;
+		var x = a.x * inv;
+		var y = a.y * inv;
+		return new V2(x, y);
+	}
+
+	// len pre zaujimavost, toto je 3-tia verzia funkcie, ktora nasobi..
+	// treba to nejak domysliet, ako umoznit spravit jeden vzorec
+	// podla ktoreho sa vygeneruju vsetky druhy funkcii
+	t.multing = function(a, b)
+	{
+		return new V2(a.x*b.y - a.y*b.x);
+	}
+
+	t.p = function()
+	{
+		return t.x.toFixed(2)+' '+t.y.toFixed(2);
+	}
+}
+
+
+</script>
+<body>
+<canvas id="c"></canvas>
