@@ -10,9 +10,10 @@ import javafx.stage.Stage;
 public class Driver extends Application {
 
 	@Override
-	public void start(Stage primaryStage) throws Exception {
+	public void start(Stage primaryStage) throws Exception{
 		Process sph = new Process();
-		Scene scene = new Scene(sph.getRoot(), sph.getWidth(), sph.getHeight(),
+		Scene scene = new Scene(sph.getRoot(),
+				sph.getWidth(), sph.getHeight(),
 				true);
 		primaryStage.setScene(scene);
 		if (sph.usingSphere()) {
@@ -22,7 +23,5 @@ public class Driver extends Application {
 		primaryStage.setTitle("SPH Test");
 	}
 
-	public static void main(String[] args) {
-		launch(args);
-	}
+	public static void main(String[] args){launch(args);}
 }

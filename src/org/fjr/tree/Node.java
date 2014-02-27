@@ -9,6 +9,8 @@ import org.fjr.particle.SPHParticle;
 
 public class Node {
 
+	int depth = 0;
+	static final int MAX_DEPTH = 50;
     BilliardParticle[] listParticle;
     SPHParticle particle;
     Node nodeTopLeft, nodeTopRight, nodeBottomLeft, nodeBottomRight;
@@ -21,33 +23,44 @@ public class Node {
     static Random rand = new Random();
     
     ArrayList<Node> allSubNode = new ArrayList<>(); 
+    
+    ArrayList<SPHParticle> particleInNode  = new ArrayList<>(50);
 
-    public Node(double left, double top, double right, double bottom) {
+    public Node(double left, double top, double right, double bottom, int depth) {
         leftMargin = left;
         rightMargin = right;
         topMargin = top;
         bottomMargin = bottom;
         numberOfParticle = 0;
-        nodeBottomLeft = nodeBottomRight = nodeTopLeft = nodeTopRight = null;
+        nodeBottomLeft = nodeBottomRight =
+        		nodeTopLeft = nodeTopRight = null;
+        
+        this.depth = depth; 
     }
 
-	public void insertParticle(SPHParticle p) {
+	public void insertParticle(SPHParticle p ) {
 		QUAD q;
 		if (numberOfParticle > 1) {
 			q = getQuadran(p);
 			insertParticleToQuadran(q, p);
 		} else if (numberOfParticle == 1) {
-			q = getQuadran(particle);
-			insertParticleToQuadran(q, particle);
-			q = getQuadran(p);
-			insertParticleToQuadran(q, p);
+			if(depth < MAX_DEPTH ) {
+				q = getQuadran(particle);
+				insertParticleToQuadran(q,particle);
+				q = getQuadran(p);
+				insertParticleToQuadran(q,p);
+			}else{
+				setParticle(p);
+			}
 		} else if (numberOfParticle == 0) {
 			setParticle(p);
-			p.setGridLine(leftMargin, topMargin, rightMargin, bottomMargin);
+			p.setGridLine(leftMargin, topMargin, rightMargin,
+					bottomMargin);
 		}
 		numberOfParticle++;
 	}
-    
+	
+	
     
     public double getLeftMargin() {return leftMargin; }
     public double getRightMargin() {return rightMargin; }
@@ -55,13 +68,21 @@ public class Node {
     public double getBottomMargin() {return bottomMargin; }
     
     
-    public Node getTopLeftNode(){return nodeTopLeft; }
-    public Node getTopRightNode() {return nodeTopRight; }
+    public Node getTopLeftNode(){ return nodeTopLeft; }
+    public Node getTopRightNode() { return nodeTopRight; }
     public Node getBottomRightNode(){return nodeBottomRight; }
     public Node getBottomLeftNode(){return nodeBottomLeft; }
    
     
-    public void setParticle(SPHParticle p ) {this.particle = p;}
+    public void setParticle(SPHParticle p) {
+    	this.particle = p;
+    	particleInNode.add(p); 
+    }
+    
+    public ArrayList<SPHParticle> getParticleInNode(){
+    	return particleInNode;
+    }
+    
     public double getNumberParticle() {return numberOfParticle;} 
     public SPHParticle getParticle() {return this.particle;}
 
@@ -125,7 +146,7 @@ public class Node {
         double bottomMargin_ = (bottomMargin + topMargin) / 2.0;
         if (nodeTopRight == null) {
             nodeTopRight = new Node(leftMargin_, topMargin_, rightMargin_,
-                    bottomMargin_);
+                    bottomMargin_ ,  depth++);
         }
         nodeTopRight.insertParticle(p);
     }
@@ -137,7 +158,7 @@ public class Node {
         double bottomMargin_ = (bottomMargin + topMargin) / 2.0;
         if (nodeTopLeft == null) {
             nodeTopLeft = new Node(leftMargin_, topMargin_, rightMargin_,
-                    bottomMargin_);
+                    bottomMargin_, depth++);
         }
         nodeTopLeft.insertParticle(p);
     }
@@ -148,8 +169,9 @@ public class Node {
         double bottomMargin_ = bottomMargin;
         double topMargin_ = (bottomMargin + topMargin) / 2.0;
         if (nodeBottomRight == null) {
-            nodeBottomRight = new Node(leftMargin_, topMargin_, rightMargin_,
-                    bottomMargin_);
+            nodeBottomRight = new Node(leftMargin_, topMargin_, 
+            		rightMargin_,
+                    bottomMargin_, depth++);
         }
         nodeBottomRight.insertParticle(p);
     }
@@ -161,7 +183,7 @@ public class Node {
         double bottomMargin_ = bottomMargin;
         if (nodeBottomLeft == null) {
             nodeBottomLeft = new Node(leftMargin_, topMargin_, rightMargin_,
-                    bottomMargin_);
+                    bottomMargin_, depth++);
         }
         nodeBottomLeft.insertParticle(p);
     }

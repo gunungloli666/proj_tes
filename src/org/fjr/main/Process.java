@@ -1549,7 +1549,8 @@ public class Process {
         }
     }
 
-    private void treeInteraction(SPHParticle particle,
+    private void treeInteraction(
+    		SPHParticle particle,
             Node current_node,
             InteractionType<SPHParticle> interaction) {
         if (current_node.getNumberParticle() > 1) {
@@ -1626,7 +1627,7 @@ public class Process {
         noderoot = new Node(0.0,
                 yMax,
                 xMax,
-                0.0);
+                0.0, 0 );
         for (int i = 0; i < allParticle.size(); i++) {
             SPHParticle p = allParticle.get(i);
             noderoot.insertParticle(p);
