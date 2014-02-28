@@ -183,7 +183,8 @@ public class MakePhoto extends Application {
 							   FileChooser fileChooser = new FileChooser();
 
 					              //Set extension filter
-					              FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("PNG Files", "*.png");
+					              FileChooser.ExtensionFilter extFilter =
+					            		  new FileChooser.ExtensionFilter("JPG Files", "*.jpg");
 					              fileChooser.getExtensionFilters().add(extFilter);
 					              fileChooser.setInitialDirectory(f);
 					              
