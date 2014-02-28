@@ -1598,9 +1598,17 @@ public class Process {
         } else if (current_node.
                 getNumberParticle() == 1) {
             if (current_node.getParticle() != particle) {
-                interaction.calculate(current_node.
-                        getParticle(),
-                        particle);
+            	if(!current_node.isLeaf()){
+            		 interaction.calculate(current_node.
+                             getParticle(),
+                             particle);
+            	}else{
+            		ArrayList<SPHParticle>  list = 
+            				current_node.getParticleInNode();
+            		for(SPHParticle p : list){
+            			interaction.calculate(p, particle);
+            		}
+            	}
             }
         }
     }

@@ -8,12 +8,12 @@ public abstract  class Particle  extends Point{
 	 * 
 	 */
 	private static final long serialVersionUID = 1L;
-	protected double x = 0.0;
-	protected double y = 0.0;
-	protected double z = 0.0; 
-	protected double vx = 0.0;
-	protected double vy = 0.0;
-	protected double vz = 0.0; 
+	public  double x = 0.0;
+	public double y = 0.0;
+	public double z = 0.0; 
+	public double vx = 0.0;
+	public double vy = 0.0;
+	public double vz = 0.0; 
 	
 	private  double left = 0.0; 
 	private double right = 0.0; 

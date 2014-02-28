@@ -9,8 +9,8 @@ import org.fjr.particle.SPHParticle;
 
 public class Node {
 
-	int depth = 0;
-	static final int MAX_DEPTH = 50;
+	int depth ;
+	static final int MAX_DEPTH = 30;
     BilliardParticle[] listParticle;
     SPHParticle particle;
     Node nodeTopLeft, nodeTopRight, nodeBottomLeft, nodeBottomRight;
@@ -21,6 +21,8 @@ public class Node {
     double CenterOfMass[] = new double[3];
     int numberOfParticle;
     static Random rand = new Random();
+    
+    boolean isLeaf = false; 
     
     ArrayList<Node> allSubNode = new ArrayList<>(); 
     
@@ -34,24 +36,31 @@ public class Node {
         numberOfParticle = 0;
         nodeBottomLeft = nodeBottomRight =
         		nodeTopLeft = nodeTopRight = null;
-        
         this.depth = depth; 
     }
+    
+    
+    public void setLeaf(boolean leaf){
+    	this.isLeaf = leaf; 
+    }
+    
+    public boolean isLeaf(){return isLeaf;}
 
 	public void insertParticle(SPHParticle p ) {
+		if(depth >  MAX_DEPTH ) {
+			setParticle(p);
+			this.setLeaf(true);
+			return; 
+		}
 		QUAD q;
 		if (numberOfParticle > 1) {
 			q = getQuadran(p);
-			insertParticleToQuadran(q, p);
+			insertParticleToQuadran(q, p); 
 		} else if (numberOfParticle == 1) {
-			if(depth < MAX_DEPTH ) {
-				q = getQuadran(particle);
-				insertParticleToQuadran(q,particle);
-				q = getQuadran(p);
-				insertParticleToQuadran(q,p);
-			}else{
-				setParticle(p);
-			}
+			q = getQuadran(particle);
+			insertParticleToQuadran(q,particle);
+			q = getQuadran(p);
+			insertParticleToQuadran(q,p);
 		} else if (numberOfParticle == 0) {
 			setParticle(p);
 			p.setGridLine(leftMargin, topMargin, rightMargin,
@@ -59,8 +68,6 @@ public class Node {
 		}
 		numberOfParticle++;
 	}
-	
-	
     
     public double getLeftMargin() {return leftMargin; }
     public double getRightMargin() {return rightMargin; }
