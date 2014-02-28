@@ -5,6 +5,8 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.concurrent.ForkJoinPool;
 
+import javax.xml.bind.annotation.adapters.HexBinaryAdapter;
+
 import org.fjr.neighboor.DoubleInteraction;
 import org.fjr.neighboor.InteractionType;
 import org.fjr.neighboor.ParallelInteraction;
@@ -71,7 +73,7 @@ public class Process {
     private double ywidth = 500.0;
     
     private double canvasWidth  = xwidth ; 
-    private double canvasHeight = ywidth - 150.0 ; 
+    private double canvasHeight = ywidth - 300.0 ; 
     
     private DecimalFormat format = new 
     		DecimalFormat("###.##");
@@ -154,7 +156,7 @@ public class Process {
     		.parallel;
 
     public double getWidth() {
-        return xwidth;
+        return xwidth + 300;
     }
 
     public double getHeight() {
@@ -207,6 +209,9 @@ public class Process {
 
     public int gridX;
     public int gridY;
+    
+    Canvas canvasPlot ; 
+    GraphicsContext gcCanvasPlot; 
 
     ArrayList<SPhysicsParticle> listSPHysicsParticle
             = new ArrayList<>();
@@ -276,7 +281,8 @@ public class Process {
 
     Text textIterasi ; 
     
-	final EventHandler<ActionEvent> event = new EventHandler<ActionEvent>() {
+	final EventHandler<ActionEvent> event = new
+			EventHandler<ActionEvent>() {
 		@Override
 		public void handle(ActionEvent arg0) {
 			animasi();
@@ -302,7 +308,11 @@ public class Process {
     public void setKeteranganIterasi(){
     	gc.setStroke(Color.BLACK);
     	gc.strokeText(("ITERASI: "+Integer.toString
-    			(iterasiCount) ), 10 , 150 );
+    			(iterasiCount) ), 10 , 20 );
+    	
+    	gcCanvasPlot.setStroke(Color.BLACK);
+    	gcCanvasPlot.strokeText(("ITERASI: "+Integer.toString
+    			(iterasiCount) ), 10 , 20 );
     }
             
     ComboBox<TypeFluid> comboBoxFluidaKedua;
@@ -346,10 +356,10 @@ public class Process {
         canvas = new Canvas( canvasWidth,
         			canvasHeight );
         
-//        canvas.setStyle("-fx-background-color: BLACK");
+        canvasPlot = new Canvas(canvasWidth,  canvasHeight); 
+        gcCanvasPlot = canvasPlot.getGraphicsContext2D(); 
         
         canvas.setStyle("-fx-background-color: transparent;");
-        
         
         canvas.addEventHandler(MouseEvent.MOUSE_CLICKED,
         		new EventHandler<MouseEvent>() {
@@ -421,71 +431,22 @@ public class Process {
 				}
 			}
 		});
-        
-        buttonPlay = new Button(){{
-                setText("PLAY");
-                setPrefWidth(100);
-                setOnAction(new
-                		EventHandler<ActionEvent>() {
-                    @Override
-                    public void handle(ActionEvent arg0) {
-                        play();
-                    }
-                });
-            }};
-
-        buttonPause = new Button(){{
-                setText("PAUSE");
-                setPrefWidth(100);
-                setOnAction(new 
-                		EventHandler<ActionEvent>() {
-                    @Override
-                    public void handle(ActionEvent arg0) {
-                        animation.pause();
-                    }
-                });
-            }};
-
-        buttonRestart = new Button() {{
-                setText("RESTART");
-                setPrefWidth(100);
-                setOnAction(new 
-                		EventHandler<ActionEvent>() {
-                    @Override
-                    public void handle(ActionEvent arg0) {
-                        restart();
-                    }
-                });
-            }};
-
-        buttonGenerateOil = new Button() {{
-                setText("ADD POLUTAN");
-                setPrefWidth(100);
-            }};
-
-        if (typeDrawer == TypeDrawer.canvas) {
-         }
-        
+                  
+            
+            
+            
         root.getChildren().add(
-        		new BorderPane() {{
-        		setStyle("-fx-background-color: BLACK;");
-                getChildren().addAll(canvas);
-            }}
+        		new VBox(){{
+        			setSpacing(10);
+        		    getChildren().addAll(canvas, canvasPlot);
+        		}}
         );
 
-
-        FlowPane flow = new FlowPane();
-        flow.setOrientation(Orientation.VERTICAL);
-        flow.setVgap(5);
-        flow.setTranslateX(10);
-        flow.setTranslateY(10);
-
-        flow.getChildren().addAll(buttonPlay,
-                buttonPause,
-                buttonRestart,
-                buttonGenerateOil);
         
-        root.getChildren().add(flow);
+
+
+        
+//        root.getChildren().add(flow);
 
         convexHull = new FastConvexHull();
 
@@ -1211,7 +1172,15 @@ public class Process {
         gc.fillRect(0,0, canvasWidth, canvasHeight);
         gc.setStroke(Color.MAGENTA); 
         gc.strokeRect(0, 0, canvasWidth, canvasHeight);
-        gc.setStroke(Color.MEDIUMSPRINGGREEN);
+//        gc.setStroke(Color.MEDIUMSPRINGGREEN);
+        
+        // untuk canvas plot... 
+        gcCanvasPlot.setFill(Color.WHITE);
+        gcCanvasPlot.fillRect(0, 0 , canvasWidth , canvasHeight); 
+        gcCanvasPlot.setStroke(Color.MAGENTA); 
+        gcCanvasPlot.strokeRect(0, 0, canvasWidth, canvasHeight); 
+        
+        
         for (int i = 0; i < allParticle.size();
                 i++) {
             SPHParticle p = allParticle.get(i);
@@ -1240,25 +1209,44 @@ public class Process {
         if (drawPerimeter) {
             if (perimeterState.
             		equals(perimeterWater)) {
-            			drawPerimeter(gc,Color.GREEN,
-                        xPerimeterWater,
-                        yPerimeterWater);
+//            			drawPerimeter(gc,Color.GREEN,
+//                        xPerimeterWater,
+//                        yPerimeterWater);
+            			
+            			drawPerimeter(gcCanvasPlot,Color.GREEN,
+                                xPerimeterWater,
+                                yPerimeterWater);
+            			
             } else if (perimeterState.
             		equals(perimeterOil)){
-            			drawPerimeter(gc,
-                        Color.MEDIUMORCHID,
-                        xPerimeterOil,
-                        yPerimeterOil);
+//            			drawPerimeter(gc,
+//                        Color.MEDIUMORCHID,
+//                        xPerimeterOil,
+//                        yPerimeterOil);
+            			
+            			drawPerimeter(gcCanvasPlot,
+                                Color.MEDIUMORCHID,
+                                xPerimeterOil,
+                                yPerimeterOil);
             } else if (perimeterState.
                     equals(perimeterBoth)) {
-            			drawPerimeter(gc,
-                        Color.GREEN,
-                        xPerimeterWater,
-                        yPerimeterWater);
-            			drawPerimeter(gc,
-                        Color.MEDIUMORCHID,
-                        xPerimeterOil,
-                        yPerimeterOil);
+//            			drawPerimeter(gc,
+//                        Color.GREEN,
+//                        xPerimeterWater,
+//                        yPerimeterWater);
+//            			drawPerimeter(gc,
+//                        Color.MEDIUMORCHID,
+//                        xPerimeterOil,
+//                        yPerimeterOil);
+            			
+            			drawPerimeter(gcCanvasPlot,
+                                Color.GREEN,
+                                xPerimeterWater,
+                                yPerimeterWater);
+                    			drawPerimeter(gcCanvasPlot,
+                                Color.MEDIUMORCHID,
+                                xPerimeterOil,
+                                yPerimeterOil);
             } else if (perimeterStates.
                     equals(perimeterUnion)) {
             }
@@ -1267,27 +1255,46 @@ public class Process {
         if (drawConvexHull) {
             if (convexHullState.
                     equals(convexHullOil)) {
-                drawConvexHull(gc,
+//                drawConvexHull(gc,
+//                        Color.MAROON,
+//                        oilConvexHull);
+                
+                drawConvexHull(gcCanvasPlot,
                         Color.MAROON,
                         oilConvexHull);
+                
             } else if (convexHullState.
                     equals(convexHullWater)) {
-                drawConvexHull(gc,
+//                drawConvexHull(gc,
+//                        Color.MAGENTA,
+//                        waterConvexHUll);
+                
+                drawConvexHull(gcCanvasPlot,
                         Color.MAGENTA,
                         waterConvexHUll);
+                
             } else if (convexHullState
                     .equals(convexHullBoth)) {
-                drawConvexHull(gc,
+//                drawConvexHull(gc,
+//                        Color.MAROON,
+//                        oilConvexHull);
+//                drawConvexHull(gc,
+//                        Color.MAGENTA,
+//                        waterConvexHUll);
+                
+                drawConvexHull(gcCanvasPlot,
                         Color.MAROON,
                         oilConvexHull);
-                drawConvexHull(gc,
+                drawConvexHull(gcCanvasPlot,
                         Color.MAGENTA,
                         waterConvexHUll);
             }
         }
         
         if(draWConcaveHull){
-        	drawConcavHull(gc, Color.GREEN);
+//        	drawConcavHull(gc, Color.GREEN);
+        	
+        	drawConcavHull(gcCanvasPlot, Color.GREEN);
         }
     }
 
@@ -2317,6 +2324,58 @@ public class Process {
 
         additionalController.getChildren().addAll(pane,
                 flowPane);
+        
+        GridPane flow = new GridPane();
+        flow.setVgap(10);
+        flow.setHgap(10); 
+
+        buttonPlay = new Button(){{
+            setText("PLAY");
+            setPrefWidth(100);
+            setOnAction(new
+            		EventHandler<ActionEvent>() {
+                @Override
+                public void handle(ActionEvent arg0) {
+                    play();
+                }
+            });
+        }};
+
+    buttonPause = new Button(){{
+            setText("PAUSE");
+            setPrefWidth(100);
+            setOnAction(new 
+            		EventHandler<ActionEvent>() {
+                @Override
+                public void handle(ActionEvent arg0) {
+                    animation.pause();
+                }
+            });
+        }};
+
+    buttonRestart = new Button() {{
+            setText("RESTART");
+            setPrefWidth(100);
+            setOnAction(new 
+            		EventHandler<ActionEvent>() {
+                @Override
+                public void handle(ActionEvent arg0) {
+                    restart();
+                }
+            });
+        }};
+
+    buttonGenerateOil = new Button() {{
+            setText("ADD POLUTAN");
+            setPrefWidth(100);
+        }};
+
+        flow.add(buttonPlay, 0, 0);
+        flow.add(buttonPause, 1, 0); 
+        flow.add(buttonRestart, 0, 1); 
+        flow.add(buttonGenerateOil, 1,1); 
+        
+        flowPane.getChildren().add(flow);
     }
 
     VBox additionalController;
@@ -2326,7 +2385,7 @@ public class Process {
     private AnchorPane getControlPane() {
         anchorpaneController = new AnchorPane();
         additionalController = new VBox();
-        additionalController.setTranslateX(textX);
+        additionalController.setTranslateX(textX + 300);
         additionalController.setTranslateY(10);
         additionalController.setSpacing(10);
         addVariabelController();
