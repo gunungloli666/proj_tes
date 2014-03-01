@@ -2,7 +2,6 @@ package fjr.tool;
 
 //import java.awt.Canvas;
 
-import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 
@@ -10,6 +9,7 @@ import javax.imageio.ImageIO;
 
 import javafx.application.Application;
 import javafx.embed.swing.SwingFXUtils;
+import javafx.embed.swt.SWTFXUtils;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.Group;
@@ -18,11 +18,16 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.effect.Blend;
+import javafx.scene.effect.BlendMode;
 import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
+import javafx.scene.shape.Rectangle;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
@@ -45,14 +50,17 @@ public class MakePhoto extends Application {
 	Button snapshotButton; 
 	Button mergeImageButton ; 
 	Button buttonReset ; 
+	Button overlay; 
 	
 	VBox box;
 	
 	File f = new File("E:/gambar tesis/"); 
 	
-	WritableImage wim ;
-	
-	
+	WritableImage wim;
+	FileChooser.ExtensionFilter filter1 = new FileChooser.ExtensionFilter(
+			"Image Files", "*.png", "*.jpg");
+	FileChooser.ExtensionFilter filter2 = new FileChooser.ExtensionFilter(
+			"PNG FIle Files", "*.png");
 	Stage stage;
 	
 	public static void main(String[] args) {
@@ -81,14 +89,11 @@ public class MakePhoto extends Application {
 			setOnAction(new EventHandler<ActionEvent>() {
 				@Override
 				public void handle(ActionEvent arg0) {	
-					finalImage = new BufferedImage((int) x, (int) y , BufferedImage.TYPE_INT_ARGB);
+					finalImage = new BufferedImage((int) x, (int) y , 
+							BufferedImage.TYPE_INT_ARGB);
 					  
 					FileChooser fileChooser = new FileChooser();
-
-		              //Set extension filter
-		              FileChooser.ExtensionFilter extFilter = new
-		            		  FileChooser.ExtensionFilter("PNG Files", "*.png");
-		              fileChooser.getExtensionFilters().add(extFilter);
+		              fileChooser.getExtensionFilters().add(filter2);
 		              fileChooser.setInitialDirectory(f);
 		              
 		              int xx = 0, yy = 0; 
@@ -130,9 +135,8 @@ public class MakePhoto extends Application {
 								fromFXImage(wim, bufferedImage);
 						 FileChooser fileChooser = new FileChooser();
 			              //Set extension filter
-			              FileChooser.ExtensionFilter extFilter = new 
-			            		  FileChooser.ExtensionFilter("PNG Files", "*.png");
-			              fileChooser.getExtensionFilters().add(extFilter);
+			            
+			              fileChooser.getExtensionFilters().add(filter2);
 			              fileChooser.setInitialDirectory(f);
 			              File ff = fileChooser.showSaveDialog(stage);     
 			              if(ff != null) {
@@ -168,6 +172,84 @@ public class MakePhoto extends Application {
 			});
 		}}; 
 		
+	overlay = new Button("OVERLAY"){{
+			setPrefWidth(100); 
+			setOnAction(new EventHandler<ActionEvent>() {
+				@Override
+				public void handle(ActionEvent arg0) {
+					finalImage = new BufferedImage((int) tempImage[0].getWidth(), 
+							(int)  tempImage[0].getHeight() , 
+							BufferedImage.TYPE_INT_ARGB);
+					  
+					FileChooser fileChooser = new FileChooser();
+		            fileChooser.getExtensionFilters().add(filter2);
+		            fileChooser.setInitialDirectory(f);
+		            
+		            Group group = new Group(); 
+		         
+
+		            HBox box = new HBox(); 
+		            
+		            
+		            // tempImage is array of buffered Images
+		            for(int i=0; i < tempImage.length ;i++){
+		            	  if(tempImage[i] != null){  
+
+		            		 ImageView view = new ImageView();
+		            		 Image im  = SwingFXUtils.toFXImage(tempImage[i], 
+		            				 null );
+		            		 view.setImage(im);
+		            		 group.getChildren().add(view); 
+		            		 box.getChildren().add(view); 
+		            	  }
+		              }
+		            
+		            
+		            group.setBlendMode(BlendMode.ADD);
+		            
+		            Rectangle r = new Rectangle();
+		            r.setX(590);
+		            r.setY(50);
+		            r.setWidth(50);
+		            r.setHeight(50);
+		            r.setFill(Color.BLUE);
+		     
+		            Circle c = new Circle();
+		            c.setFill(Color.rgb(255, 0, 0, 0.5f));
+		            c.setCenterX(590);
+		            c.setCenterY(50);
+		            c.setRadius(25);
+		            
+		         
+		            group.getChildren().add(r);
+		            group.getChildren().add(c);
+		            
+		            
+		            Stage ss = new Stage();
+		            ss.setScene(new Scene(group , tempImage[0].getWidth(), tempImage[0].getHeight())); 
+		            ss.show();
+		            
+		              
+		        	wim = new WritableImage(((int) tempImage[0].getWidth() ) , 
+							((int) tempImage[0].getHeight() ));
+		        	
+					box.snapshot(null, wim); 
+					
+					BufferedImage image;
+					try {
+						image = SwingFXUtils.fromFXImage(wim, null);
+						File ff = fileChooser.showSaveDialog(stage);
+						if (ff != null) {
+							ImageIO.write(image, "png", ff);
+						}
+					} catch (Exception e) {
+					}
+		  		  
+				}
+			});
+		}}; 
+		
+		
 		box = new VBox() {{
 				setSpacing(10);
 				setTranslateY(10);
@@ -181,15 +263,8 @@ public class MakePhoto extends Application {
 						@Override
 						public void handle(ActionEvent arg0) {
 							   FileChooser fileChooser = new FileChooser();
-
-					              //Set extension filter
-					              FileChooser.ExtensionFilter extFilter =
-					            		  new FileChooser.ExtensionFilter("JPG Files", "*.jpg");
-					              fileChooser.getExtensionFilters().add(extFilter);
+					              fileChooser.getExtensionFilters().add(filter1);
 					              fileChooser.setInitialDirectory(f);
-					              
-					            
-					              //Show open file dialog
 					              fileImages[j] = fileChooser.showOpenDialog(stage);         
 					          if(fileImages[j] != null ){
 					        	    addGraphicsToNode(fileImages[j]) ;
@@ -204,7 +279,7 @@ public class MakePhoto extends Application {
 		}
 		
 		box.getChildren().addAll(snapshotButton,
-				mergeImageButton, 
+				mergeImageButton, overlay, 
 				buttonReset ); 
 		canvas = new Canvas(canvasWidth, canvasHeight);
 		gc = canvas.getGraphicsContext2D();
