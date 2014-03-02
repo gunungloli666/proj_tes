@@ -98,7 +98,7 @@ public class MakePhoto extends Application {
 		              fileChooser.setInitialDirectory(f);
 		              
 		              int xx = 0, yy = 0; 
-		              for(int i=0; i < tempImage.length ;i++)
+		              for(int i=0; i < iter ;i++)
 		              {
 		            	  if(tempImage[i] != null){
 		            		  finalImage.createGraphics().drawImage(tempImage[i], 
@@ -186,59 +186,24 @@ public class MakePhoto extends Application {
 		            fileChooser.getExtensionFilters().add(filter2);
 		            fileChooser.setInitialDirectory(f);
 		            
-		            Group group = new Group(); 
-		         
-
-		            HBox box = new HBox(); 
 		            
-		            int x = 0; 
 		            Group temp = new Group(); 
 		            // tempImage is array of buffered Images
-		            for(int i=0; i < tempImage.length ;i++){
-		            	  if(ims[i] != null ){  
-
+		            for(int i=0; i < iter ;i++){
+		            	  if(tempImage[i] != null ){  
 		            		 ImageView view = new ImageView();
-//		            		 Image im  = SwingFXUtils.toFXImage(tempImage[i], 
-//		            				 null );
-		            		 view.setImage(ims[i]);
-		            		 
-		            		 group.getChildren().add(view);
-		            		 
+		            		 Image im  = SwingFXUtils.toFXImage(tempImage[i], 
+		            				 null );
+		            		 view.setImage(im);
+		            		 view.setBlendMode(BlendMode.DARKEN);
+		            		 temp.getChildren().add(view); 
 		            	  }
-		              }
-		            
-		            
-		            group.setBlendMode(BlendMode.MULTIPLY);
-		            
-		            
-		            
-		            Rectangle r = new Rectangle();
-		            r.setX(590);
-		            r.setY(50);
-		            r.setWidth(50);
-		            r.setHeight(50);
-		            r.setFill(Color.BLUE);
-		     
-		            Circle c = new Circle();
-		            c.setFill(Color.rgb(255, 0, 0, 0.5f));
-		            c.setCenterX(590);
-		            c.setCenterY(50);
-		            c.setRadius(25);
-		            
-		         
-		            group.getChildren().add(r);
-		            group.getChildren().add(c);
-		            
-		            
-		            Stage ss = new Stage();
-		            ss.setScene(new Scene(group , tempImage[0].getWidth(), tempImage[0].getHeight())); 
-		            ss.show();
-		            
+		              } 
 		              
 		        	wim = new WritableImage(((int) tempImage[0].getWidth() ) , 
 							((int) tempImage[0].getHeight() ));
 		        	
-					box.snapshot(null, wim); 
+					temp.snapshot(null, wim); 
 					
 					BufferedImage image;
 					try {
@@ -313,13 +278,14 @@ public class MakePhoto extends Application {
 		Image im = new Image(f.toURI().toString());
 		ims[iter] = im; 
 		try{
-			tempImage[iter++] = ImageIO.read(f); 
+			tempImage[iter] = ImageIO.read(f); 
 			
 		}catch(Exception e){}
 		gc.drawImage(im,0, y ,  im.getWidth(), im.getHeight());
 		y +=   im.getHeight(); 
 		if(x < im.getWidth() )
 			x = im.getWidth() ; 
+		iter++; 
 	}
 
 }
