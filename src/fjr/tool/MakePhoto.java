@@ -9,16 +9,15 @@ import javax.imageio.ImageIO;
 
 import javafx.application.Application;
 import javafx.embed.swing.SwingFXUtils;
-import javafx.embed.swt.SWTFXUtils;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.Group;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.effect.Blend;
 import javafx.scene.effect.BlendMode;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -26,8 +25,6 @@ import javafx.scene.image.WritableImage;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Circle;
-import javafx.scene.shape.Rectangle;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
@@ -57,12 +54,17 @@ public class MakePhoto extends Application {
 	File f = new File("E:/gambar tesis/"); 
 	
 	WritableImage wim;
+	
 	FileChooser.ExtensionFilter filter1 = new FileChooser.ExtensionFilter(
 			"Image Files", "*.png", "*.jpg");
+	
 	FileChooser.ExtensionFilter filter2 = new FileChooser.ExtensionFilter(
 			"PNG FIle Files", "*.png");
 	Stage stage;
 	
+    BufferedImage finalImage ; 
+
+    BufferedImage[] tempImage  ; 
 	public static void main(String[] args) {
 		launch(args);
 	}
@@ -76,47 +78,9 @@ public class MakePhoto extends Application {
 		primaryStage.show();
 		iniGUI();
 	}
-	
-    BufferedImage finalImage ; 
 
-    BufferedImage[] tempImage  ; 
 
 	public void iniGUI() {
-		
-		tempImage  = new BufferedImage[num]; 
-		mergeImageButton = new Button("MERGE"){{
-			setPrefWidth(100);
-			setOnAction(new EventHandler<ActionEvent>() {
-				@Override
-				public void handle(ActionEvent arg0) {	
-					finalImage = new BufferedImage((int) x, (int) y , 
-							BufferedImage.TYPE_INT_ARGB);
-					  
-					FileChooser fileChooser = new FileChooser();
-		              fileChooser.getExtensionFilters().add(filter2);
-		              fileChooser.setInitialDirectory(f);
-		              
-		              int xx = 0, yy = 0; 
-		              for(int i=0; i < tempImage.length ;i++)
-		              {
-		            	  if(tempImage[i] != null){
-		            		  finalImage.createGraphics().drawImage(tempImage[i], 
-			            			  xx, yy  , null); 
-			            	  yy += tempImage[i].getHeight();
-		            	  }
-		              }
-		              
-		              File ff = fileChooser.showSaveDialog(stage);     
-		              if(ff != null) {
-		            		try{
-		            			ImageIO.write(finalImage, "png",
-			        					ff);
-		            		}catch(Exception e){}
-		              }
-				}
-				
-			});
-		}}; 
 		
 		snapshotButton = new Button("SNAPSHOT"){{
 			setPrefWidth(100); 
@@ -177,56 +141,39 @@ public class MakePhoto extends Application {
 			setOnAction(new EventHandler<ActionEvent>() {
 				@Override
 				public void handle(ActionEvent arg0) {
-					finalImage = new BufferedImage((int) tempImage[0].getWidth(), 
-							(int)  tempImage[0].getHeight() , 
-							BufferedImage.TYPE_INT_ARGB);
-					  
+					
 					FileChooser fileChooser = new FileChooser();
 		            fileChooser.getExtensionFilters().add(filter2);
 		            fileChooser.setInitialDirectory(f);
 		            
 		            Group group = new Group(); 
-		         
-
-		            HBox box = new HBox(); 
 		            
-		            
+		            int x = 0; 
+		            Group temp = new Group(); 
 		            // tempImage is array of buffered Images
 		            for(int i=0; i < tempImage.length ;i++){
-		            	  if(tempImage[i] != null){  
+		            	  if(ims[i] != null ){  
 
 		            		 ImageView view = new ImageView();
-		            		 Image im  = SwingFXUtils.toFXImage(tempImage[i], 
-		            				 null );
-		            		 view.setImage(im);
-		            		 group.getChildren().add(view); 
-		            		 box.getChildren().add(view); 
+		            		 
+		            		 view.setImage(ims[i]);
+		            		 
+		            		 group.getChildren().add(view);
+		            		 
+		            		 ImageView view2 = new ImageView(); 
+		            		 view2.setImage(ims[i]);
+		            		 
+		            		 view.setTranslateX(x);
+		            		 
+		            		 temp.getChildren().add(view2); 
+		            		 x+= ims[i].getWidth(); 
 		            	  }
 		              }
 		            
 		            
-		            group.setBlendMode(BlendMode.ADD);
-		            
-		            Rectangle r = new Rectangle();
-		            r.setX(590);
-		            r.setY(50);
-		            r.setWidth(50);
-		            r.setHeight(50);
-		            r.setFill(Color.BLUE);
-		     
-		            Circle c = new Circle();
-		            c.setFill(Color.rgb(255, 0, 0, 0.5f));
-		            c.setCenterX(590);
-		            c.setCenterY(50);
-		            c.setRadius(25);
-		            
-		         
-		            group.getChildren().add(r);
-		            group.getChildren().add(c);
-		            
-		            
+
 		            Stage ss = new Stage();
-		            ss.setScene(new Scene(group , tempImage[0].getWidth(), tempImage[0].getHeight())); 
+		            ss.setScene(new Scene(temp  , x , tempImage[0].getHeight())); 
 		            ss.show();
 		            
 		              
@@ -244,6 +191,7 @@ public class MakePhoto extends Application {
 						}
 					} catch (Exception e) {
 					}
+					
 		  		  
 				}
 			});
@@ -301,8 +249,12 @@ public class MakePhoto extends Application {
 	double y = 0 ; 
 	double x = 0; 
 	int iter = 0; 
+	
+	Image[] ims = new Image[num]; 
+	
 	public void addGraphicsToNode(File f){
 		Image im = new Image(f.toURI().toString());
+		ims[iter] = im; 
 		try{
 			tempImage[iter++] = ImageIO.read(f); 
 			
@@ -311,6 +263,11 @@ public class MakePhoto extends Application {
 		y +=   im.getHeight(); 
 		if(x < im.getWidth() )
 			x = im.getWidth() ; 
+	}
+	
+	
+	public void addGraphicsToGroup(Node node , File f){
+//	Ima
 	}
 
 }
