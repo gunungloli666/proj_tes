@@ -9,7 +9,6 @@ import javax.imageio.ImageIO;
 
 import javafx.application.Application;
 import javafx.embed.swing.SwingFXUtils;
-import javafx.embed.swt.SWTFXUtils;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.Group;
@@ -18,7 +17,6 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.effect.Blend;
 import javafx.scene.effect.BlendMode;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -26,8 +24,6 @@ import javafx.scene.image.WritableImage;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.Circle;
-import javafx.scene.shape.Rectangle;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
@@ -41,7 +37,7 @@ public class MakePhoto extends Application {
 	double canvasWidth = 800; 
 	Group root;
 
-	int num  = 5; 
+	int num  = 10; 
 	
 	Button[] buttons = new Button[num];
 	
@@ -54,7 +50,7 @@ public class MakePhoto extends Application {
 	
 	VBox box;
 	
-	File f = new File("E:/gambar tesis/"); 
+	File f = new File("E:/TESIS/final TESIS/gambar tesis/"); 
 	
 	WritableImage wim;
 	FileChooser.ExtensionFilter filter1 = new FileChooser.ExtensionFilter(
@@ -62,6 +58,7 @@ public class MakePhoto extends Application {
 	FileChooser.ExtensionFilter filter2 = new FileChooser.ExtensionFilter(
 			"PNG FIle Files", "*.png");
 	Stage stage;
+	
 	
 	public static void main(String[] args) {
 		launch(args);
