@@ -40,7 +40,6 @@ public class MakePhoto extends Application {
 	int num  = 10; 
 	
 	Button[] buttons = new Button[num];
-	
 	File[] fileImages = new File[num]; 
 
 	Button snapshotButton; 
@@ -50,8 +49,13 @@ public class MakePhoto extends Application {
 	
 	VBox box;
 	
-	File f = new File("E:/TESIS/final TESIS/gambar tesis/"); 
+	String[] huruf = {
+			"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", 
+			"K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", 
+			"U", "V", "W", "X", "Y", "Z" 
+	}; 
 	
+	File f = new File("E:/TESIS/final TESIS/gambar tesis/"); 
 	WritableImage wim;
 	FileChooser.ExtensionFilter filter1 = new FileChooser.ExtensionFilter(
 			"Image Files", "*.png", "*.jpg");
@@ -59,44 +63,37 @@ public class MakePhoto extends Application {
 			"PNG FIle Files", "*.png");
 	Stage stage;
 	
-	
 	public static void main(String[] args) {
 		launch(args);
 	}
-	
 
 	@Override
 	public void start(Stage primaryStage) throws Exception {
 		stage = primaryStage; 
 		root = new Group();
-		primaryStage.setScene(new Scene(root, width + 150, height));
+		primaryStage.setScene(new Scene(root, width + 150, height + 200 ));
 		primaryStage.show();
 		iniGUI();
 	}
 	
     BufferedImage finalImage ; 
-
-    BufferedImage[] tempImage  ; 
+    BufferedImage[] tempImage; 
 
 	public void iniGUI() {
-		
-		tempImage  = new BufferedImage[num]; 
-		
+		tempImage = new BufferedImage[num]; 
 		mergeImageButton = new Button("MERGE"){{
 			setPrefWidth(100);
 			setOnAction(new EventHandler<ActionEvent>() {
 				@Override
 				public void handle(ActionEvent arg0) {	
-					finalImage = new BufferedImage((int) x, (int) y , 
-							BufferedImage.TYPE_INT_ARGB);
-					  
-					FileChooser fileChooser = new FileChooser();
+					finalImage = new BufferedImage(
+							(int) x, (int) y , 
+							BufferedImage.TYPE_INT_ARGB);  
+					  FileChooser fileChooser = new FileChooser();
 		              fileChooser.getExtensionFilters().add(filter2);
 		              fileChooser.setInitialDirectory(f);
-		              
 		              int xx = 0, yy = 0; 
-		              for(int i=0; i < iter ;i++)
-		              {
+		              for(int i=0; i < iter ;i++){
 		            	  if(tempImage[i] != null){
 		            		  finalImage.createGraphics().drawImage(tempImage[i], 
 			            			  xx, yy  , null); 
@@ -112,7 +109,6 @@ public class MakePhoto extends Application {
 		            		}catch(Exception e){}
 		              }
 				}
-				
 			});
 		}}; 
 		
@@ -132,8 +128,7 @@ public class MakePhoto extends Application {
 						image = SwingFXUtils.
 								fromFXImage(wim, bufferedImage);
 						 FileChooser fileChooser = new FileChooser();
-			              //Set extension filter
-			            
+						 
 			              fileChooser.getExtensionFilters().add(filter2);
 			              fileChooser.setInitialDirectory(f);
 			              File ff = fileChooser.showSaveDialog(stage);     
@@ -185,7 +180,6 @@ public class MakePhoto extends Application {
 		            
 		            
 		            Group temp = new Group(); 
-		            // tempImage is array of buffered Images
 		            for(int i=0; i < iter ;i++){
 		            	  if(tempImage[i] != null ){  
 		            		 ImageView view = new ImageView();
@@ -216,10 +210,9 @@ public class MakePhoto extends Application {
 			});
 		}}; 
 		
-		
 		box = new VBox() {{
-				setSpacing(10);
-				setTranslateY(10);
+			setSpacing(10);
+			setTranslateY(10);
 		}};	
 	    
 		for (int i = 0; i < buttons.length; i++) {
@@ -268,9 +261,7 @@ public class MakePhoto extends Application {
 	double y = 0 ; 
 	double x = 0; 
 	int iter = 0; 
-	
 	Image[] ims = new Image[num]; 
-	
 	public void addGraphicsToNode(File f){
 		Image im = new Image(f.toURI().toString());
 		ims[iter] = im; 
