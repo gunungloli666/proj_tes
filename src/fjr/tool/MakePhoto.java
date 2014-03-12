@@ -35,6 +35,9 @@ public class MakePhoto extends Application {
 	double width = 400, height = 400;
 	double canvasHeight = 5000;
 	double canvasWidth = 800; 
+	
+	int imageWidth = 0, imageHeight =0;  
+	
 	Group root;
 
 	int num  = 10; 
@@ -48,6 +51,12 @@ public class MakePhoto extends Application {
 	Button overlay; 
 	
 	VBox box;
+	
+	VBox nodeGraphics; 
+	
+	
+	
+	ImageView views[] = new ImageView[num]; 
 	
 	String[] huruf = {
 			"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", 
@@ -79,54 +88,24 @@ public class MakePhoto extends Application {
     BufferedImage finalImage ; 
     BufferedImage[] tempImage; 
 
-	public void iniGUI() {
-		tempImage = new BufferedImage[num]; 
-		mergeImageButton = new Button("MERGE"){{
-			setPrefWidth(100);
-			setOnAction(new EventHandler<ActionEvent>() {
-				@Override
-				public void handle(ActionEvent arg0) {	
-					finalImage = new BufferedImage(
-							(int) x, (int) y , 
-							BufferedImage.TYPE_INT_ARGB);  
-					  FileChooser fileChooser = new FileChooser();
-		              fileChooser.getExtensionFilters().add(filter2);
-		              fileChooser.setInitialDirectory(f);
-		              int xx = 0, yy = 0; 
-		              for(int i=0; i < iter ;i++){
-		            	  if(tempImage[i] != null){
-		            		  finalImage.createGraphics().drawImage(tempImage[i], 
-			            			  xx, yy  , null); 
-			            	  yy += tempImage[i].getHeight();
-		            	  }
-		              }
-		              
-		              File ff = fileChooser.showSaveDialog(stage);     
-		              if(ff != null) {
-		            		try{
-		            			ImageIO.write(finalImage, "png",
-			        					ff);
-		            		}catch(Exception e){}
-		              }
-				}
-			});
-		}}; 
+	private void iniGUI() {
+		tempImage = new BufferedImage[num];
 		
+		nodeGraphics = new VBox(){{
+			setSpacing(5);
+			}}; 
+				
 		snapshotButton = new Button("SNAPSHOT"){{
 			setPrefWidth(100); 
 			setOnAction(new EventHandler<ActionEvent>() {
 				@Override
 				public void handle(ActionEvent arg0) {	
-					wim = new WritableImage(((int) x ) , 
-							((int) y ));
-					canvas.snapshot(null, wim); 
-					BufferedImage bufferedImage = new 
-							BufferedImage((int) x, (int) y,
-							BufferedImage.TYPE_INT_ARGB); 
+					wim = new WritableImage(((int) imageWidth) , 
+							((int) imageHeight ));
 					BufferedImage image ; 
 					try{
 						image = SwingFXUtils.
-								fromFXImage(wim, bufferedImage);
+								fromFXImage(wim, null );
 						 FileChooser fileChooser = new FileChooser();
 						 
 			              fileChooser.getExtensionFilters().add(filter2);
@@ -149,53 +128,25 @@ public class MakePhoto extends Application {
 			setOnAction(new EventHandler<ActionEvent>() {
 				@Override
 				public void handle(ActionEvent arg0) {	
-					y = 0; 
-					x = 0; 
 					
-					iter = 0; 
-					for(int i=0; i< buttons.length; i++){
-						buttons[i].setDisable(false); 
-						buttons[i].setText("..."); 
-					}
-					
-					gc.setFill(Color.WHITE);
-					gc.fillRect(0, 0, canvasWidth, canvasHeight);
  				}
 				
 			});
 		}}; 
 		
-	overlay = new Button("OVERLAY"){{
+		overlay = new Button("OVERLAY"){{
 			setPrefWidth(100); 
 			setOnAction(new EventHandler<ActionEvent>() {
 				@Override
 				public void handle(ActionEvent arg0) {
-					finalImage = new BufferedImage((int) tempImage[0].getWidth(), 
-							(int)  tempImage[0].getHeight() , 
-							BufferedImage.TYPE_INT_ARGB);
-					  
+					calculatePrefferedSize(); 
+					
 					FileChooser fileChooser = new FileChooser();
 		            fileChooser.getExtensionFilters().add(filter2);
-		            fileChooser.setInitialDirectory(f);
+		            fileChooser.setInitialDirectory(f);            
 		            
-		            
-		            Group temp = new Group(); 
-		            for(int i=0; i < iter ;i++){
-		            	  if(tempImage[i] != null ){  
-		            		 ImageView view = new ImageView();
-		            		 Image im  = SwingFXUtils.toFXImage(tempImage[i], 
-		            				 null );
-		            		 view.setImage(im);
-		            		 view.setBlendMode(BlendMode.DARKEN);
-		            		 temp.getChildren().add(view); 
-		            	  }
-		              } 
-		              
-		        	wim = new WritableImage(((int) tempImage[0].getWidth() ) , 
-							((int) tempImage[0].getHeight() ));
-		        	
-					temp.snapshot(null, wim); 
-					
+		            wim = new WritableImage(imageWidth, imageHeight);
+					nodeGraphics.snapshot(null, wim); 
 					BufferedImage image;
 					try {
 						image = SwingFXUtils.fromFXImage(wim, null);
@@ -203,9 +154,7 @@ public class MakePhoto extends Application {
 						if (ff != null) {
 							ImageIO.write(image, "png", ff);
 						}
-					} catch (Exception e) {
-					}
-		  		  
+					} catch (Exception e) {}
 				}
 			});
 		}}; 
@@ -217,45 +166,122 @@ public class MakePhoto extends Application {
 	    
 		for (int i = 0; i < buttons.length; i++) {
 			final int j = i; 
-			buttons[i] = new Button("...") {{
-					setPrefWidth(100);
+			buttons[i] = new Button("ADD") {{
+					setPrefWidth(60);
 					setOnAction(new EventHandler<ActionEvent>() {
 						@Override
 						public void handle(ActionEvent arg0) {
-							   FileChooser fileChooser = new FileChooser();
-					              fileChooser.getExtensionFilters().add(filter1);
-					              fileChooser.setInitialDirectory(f);
-					              fileImages[j] = fileChooser.showOpenDialog(stage);         
-					          if(fileImages[j] != null ){
-					        	    addGraphicsToNode(fileImages[j]) ;
-					        	    setText("SUDAH");
-					        	    setDisable(true);
-					          }
+							FileChooser fileChooser = new FileChooser();
+							fileChooser.getExtensionFilters().add(filter1);
+							fileChooser.setInitialDirectory(f);
+							File ff = fileChooser.showOpenDialog(stage);
+							if(ff != null){
+								addGraphicsToGroup(ff, views[j]);
+								disableButton(buttons[j]);
+							}
 						}
 					});
 				}};
 				
-			box.getChildren().add(buttons[i]);
+				
+		   final Button b = new Button("CLEAR"){{
+			   setPrefWidth(60); 
+			   setOnAction(new EventHandler<ActionEvent>() {
+				@Override
+				public void handle(ActionEvent arg0) {
+					removeImage(views[j]);
+					enableButton(buttons[j]); 
+				}
+			});
+		   }}; 
+		   
+			HBox boxH = new HBox(){{
+				setSpacing(5); 
+				getChildren().addAll(buttons[j],b); 
+
+			}}; 
+				
+			box.getChildren().add(boxH);
 		}
 		
+		// tambahkan control operasi
 		box.getChildren().addAll(snapshotButton,
 				mergeImageButton, overlay, 
-				buttonReset ); 
-		canvas = new Canvas(canvasWidth, canvasHeight);
-		gc = canvas.getGraphicsContext2D();
-
+				buttonReset 
+				); 
+		
+		// tambahkan imageview ke box
+		for(int i=0; i< num; i++){
+			nodeGraphics.getChildren().add(
+						views[i] = new ImageView()
+					); 
+		}
+		
+		// tambahkan box ke scrollpane
 		root.getChildren().add(
 				new HBox() {{
 				setSpacing(10);
-				getChildren().addAll(new ScrollPane() {{
+				getChildren().addAll(
+						new ScrollPane() {{
 						setPrefSize(width, height);
-						setContent(canvas);
+						setContent(nodeGraphics);
 					}}, 
 					box);
 			}}
 		);
-		gc.setFill(Color.WHITE);
-		gc.fillRect(0, 0, canvasWidth, canvasHeight);
+	}
+	
+	
+	private void enableButton(Button b ){
+		b.setDisable(false);
+	}
+	
+	private void disableButton(Button b){
+		b.setDisable(true); 
+	}
+	
+	
+	int image_iter = 0; 
+
+	private void  addGraphicsToGroup(File f, ImageView view){
+		Image im = new Image(f.toURI().toString()); 
+		view.setImage(im); 
+		imageHeight += im.getHeight(); 
+	}
+	
+	private void removeImage(ImageView view ){
+		if(view != null){
+			int height = (int)view.getImage().getHeight(); 
+			imageHeight -= height;
+			view.setImage(null);
+		}
+	}
+
+	private void calculatePrefferedSize(){
+		imageWidth = 0; 
+		imageHeight = 0;
+		for(int i=0; i< num; i++){
+			Image im = views[i].getImage();
+			if(im!= null){
+				if(im.getWidth() > imageWidth)
+					imageWidth = (int) im.getWidth(); 
+				if(im.getHeight() > imageHeight)
+					imageHeight = (int) im.getHeight(); 
+			}
+		}
+	}
+	
+	private void calculateMaximumSize(){
+		imageWidth = 0; 
+		imageHeight = 0;
+		for(int i=0; i< num; i++){
+			Image im = views[i].getImage();
+			if(im!= null){
+				if(im.getWidth() > imageWidth)
+					imageWidth = (int) im.getWidth(); 
+				imageHeight+= im.getHeight(); 
+			}
+		}
 	}
 	
 	double y = 0 ; 
