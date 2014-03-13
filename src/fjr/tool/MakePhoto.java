@@ -312,6 +312,8 @@ public class MakePhoto extends Application {
 			view.setImage(null);
 		}
 	}
+	
+	int a; 
 
 	private void calculatePrefferedSize(){
 		imageWidth = 0; 
