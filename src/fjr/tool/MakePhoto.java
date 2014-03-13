@@ -12,6 +12,7 @@ import javafx.embed.swing.SwingFXUtils;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.Group;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -23,7 +24,9 @@ import javafx.scene.image.ImageView;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
@@ -37,11 +40,8 @@ public class MakePhoto extends Application {
 	double canvasWidth = 800; 
 	
 	int imageWidth = 0, imageHeight =0;  
-	
 	Group root;
-
-	int num  = 10; 
-	
+	int num  = 7; 
 	Button[] buttons = new Button[num];
 	File[] fileImages = new File[num]; 
 
@@ -50,12 +50,11 @@ public class MakePhoto extends Application {
 	Button buttonReset ; 
 	Button overlay; 
 	
+	Button addLabel, removeLabel; 
+	
 	VBox box;
-	
 	VBox nodeGraphics; 
-	
-	
-	
+
 	ImageView views[] = new ImageView[num]; 
 	
 	String[] huruf = {
@@ -63,6 +62,8 @@ public class MakePhoto extends Application {
 			"K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", 
 			"U", "V", "W", "X", "Y", "Z" 
 	}; 
+	
+	Group[] collectObject = new Group[num]; 
 	
 	File f = new File("E:/TESIS/final TESIS/gambar tesis/"); 
 	WritableImage wim;
@@ -80,7 +81,7 @@ public class MakePhoto extends Application {
 	public void start(Stage primaryStage) throws Exception {
 		stage = primaryStage; 
 		root = new Group();
-		primaryStage.setScene(new Scene(root, width + 150, height + 200 ));
+		primaryStage.setScene(new Scene(root, width + 150, height + 100 ));
 		primaryStage.show();
 		iniGUI();
 	}
@@ -90,36 +91,19 @@ public class MakePhoto extends Application {
 
 	private void iniGUI() {
 		tempImage = new BufferedImage[num];
-		
 		nodeGraphics = new VBox(){{
-			setSpacing(5);
+			setSpacing(0);
 			}}; 
-				
+			
 		snapshotButton = new Button("SNAPSHOT"){{
 			setPrefWidth(100); 
 			setOnAction(new EventHandler<ActionEvent>() {
 				@Override
 				public void handle(ActionEvent arg0) {	
-					wim = new WritableImage(((int) imageWidth) , 
-							((int) imageHeight ));
-					BufferedImage image ; 
-					try{
-						image = SwingFXUtils.
-								fromFXImage(wim, null );
-						 FileChooser fileChooser = new FileChooser();
-						 
-			              fileChooser.getExtensionFilters().add(filter2);
-			              fileChooser.setInitialDirectory(f);
-			              File ff = fileChooser.showSaveDialog(stage);     
-			              if(ff != null) {
-			            		ImageIO.write(image, "png",
-			        					ff);
-			              }
-					}catch(Exception e){
-						
-					}
+					calculateMaximumSize();
+
+					createSnapshoot(nodeGraphics);
 				}
-				
 			});
 		}}; 
 		
@@ -129,7 +113,7 @@ public class MakePhoto extends Application {
 				@Override
 				public void handle(ActionEvent arg0) {	
 					
- 				}
+				}
 				
 			});
 		}}; 
@@ -140,27 +124,22 @@ public class MakePhoto extends Application {
 				@Override
 				public void handle(ActionEvent arg0) {
 					calculatePrefferedSize(); 
-					
-					FileChooser fileChooser = new FileChooser();
-		            fileChooser.getExtensionFilters().add(filter2);
-		            fileChooser.setInitialDirectory(f);            
-		            
-		            wim = new WritableImage(imageWidth, imageHeight);
-					nodeGraphics.snapshot(null, wim); 
-					BufferedImage image;
-					try {
-						image = SwingFXUtils.fromFXImage(wim, null);
-						File ff = fileChooser.showSaveDialog(stage);
-						if (ff != null) {
-							ImageIO.write(image, "png", ff);
+					Group tempNode = new Group(); 
+					for(int i=0; i< num; i++){
+						if(( views[i].getImage()) != null){
+							ImageView tempView = new ImageView(); 
+							tempView.setImage(views[i].getImage());
+							tempView.setBlendMode(BlendMode.DARKEN);
+							tempNode.getChildren().add(tempView) ;  
 						}
-					} catch (Exception e) {}
+					}
+					createSnapshoot(tempNode); 			
 				}
 			});
 		}}; 
 		
 		box = new VBox() {{
-			setSpacing(10);
+			setSpacing(5);
 			setTranslateY(10);
 		}};	
 	    
@@ -204,16 +183,39 @@ public class MakePhoto extends Application {
 			box.getChildren().add(boxH);
 		}
 		
+		addLabel = new Button("LABEL"){{
+			setPrefWidth(100);
+			setOnAction(new EventHandler<ActionEvent >() {
+				@Override
+				public void handle(ActionEvent arg0) {
+					addLabeltoImage();
+				}
+			});
+		}}; 
+		
+		removeLabel = new Button("REMOVE"){{
+			setPrefWidth(100); 
+			setOnAction(new EventHandler<ActionEvent>() {
+				@Override
+				public void handle(ActionEvent arg0) {
+					removeLabelfromImage(); 
+				}
+			});
+		}}; 
+		
 		// tambahkan control operasi
-		box.getChildren().addAll(snapshotButton,
-				mergeImageButton, overlay, 
-				buttonReset 
+		box.getChildren().addAll(snapshotButton, overlay, 
+				buttonReset , addLabel, removeLabel 
 				); 
 		
 		// tambahkan imageview ke box
 		for(int i=0; i< num; i++){
+			final int j = i; 
 			nodeGraphics.getChildren().add(
-						views[i] = new ImageView()
+						collectObject[i] = new 
+						Group(){{
+							getChildren().add(views[j] = new ImageView());
+						}} 
 					); 
 		}
 		
@@ -231,6 +233,63 @@ public class MakePhoto extends Application {
 		);
 	}
 	
+	Stage secondStage; 
+	
+	private void createSnapshoot(Node  node){
+		secondStage = new Stage();
+		Group root  = new Group(); 
+		VBox box = new VBox(); 
+		box.setSpacing(5);
+		
+		wim = new WritableImage(((int) imageWidth) , 
+				((int) imageHeight ));
+		
+		node.snapshot(null, wim); 
+		
+		box.getChildren().addAll(
+				new ScrollPane(){{
+					setPrefSize(400, 400);
+					setContent(
+							new ImageView(){{
+								setImage(wim); 
+							}}); 
+				}}); 
+		
+		final BufferedImage image = 
+				SwingFXUtils.fromFXImage(wim, null);
+		
+		box.getChildren().add(
+				new HBox(){{
+					setSpacing(0);
+					getChildren().addAll(
+							new Button("SAVE"){{
+								setPrefWidth(100);
+								setOnAction(new
+										EventHandler<ActionEvent>() {
+									@Override
+									public void handle(ActionEvent arg0) {
+										saveImage(image);
+									}
+								});
+							}});
+				}}); 
+		
+		root.getChildren().add(box); 
+		secondStage.setScene(new Scene(root));
+		secondStage.show(); 
+	}
+	
+	private void saveImage(BufferedImage image){
+		FileChooser fileChooser = new FileChooser();
+        fileChooser.getExtensionFilters().add(filter2);
+        fileChooser.setInitialDirectory(f);
+		try {
+			File ff = fileChooser.showSaveDialog(stage);
+			if (ff != null) {
+				ImageIO.write(image, "png", ff);
+			}
+		} catch (Exception e) {}
+	}
 	
 	private void enableButton(Button b ){
 		b.setDisable(false);
@@ -239,9 +298,6 @@ public class MakePhoto extends Application {
 	private void disableButton(Button b){
 		b.setDisable(true); 
 	}
-	
-	
-	int image_iter = 0; 
 
 	private void  addGraphicsToGroup(File f, ImageView view){
 		Image im = new Image(f.toURI().toString()); 
@@ -250,7 +306,7 @@ public class MakePhoto extends Application {
 	}
 	
 	private void removeImage(ImageView view ){
-		if(view != null){
+		if(view != null && view.getImage() != null ){
 			int height = (int)view.getImage().getHeight(); 
 			imageHeight -= height;
 			view.setImage(null);
@@ -271,6 +327,29 @@ public class MakePhoto extends Application {
 		}
 	}
 	
+	private void addLabeltoImage(){
+		for(int i=0; i< num; i++){
+			if(views[i].getImage() != null){
+				double width = views[i].getImage().getWidth(); 
+				Text text = new Text(huruf[i]);
+				text.setFont(Font.font(null, FontWeight.BOLD, 18)) ;
+				text.setTranslateX(width - 20); 
+				text.setTranslateY(20);
+				collectObject[i].getChildren().add(text); 
+			}
+		}
+	}
+	
+	private void removeLabelfromImage(){
+		for(int i=0; i< num ;i++){
+			for(Node node: collectObject[i].getChildren()){
+				if(node instanceof Text){
+					System.out.println(((Text) node).getText()); 
+				}
+			}
+		}
+	}
+	
 	private void calculateMaximumSize(){
 		imageWidth = 0; 
 		imageHeight = 0;
@@ -279,27 +358,9 @@ public class MakePhoto extends Application {
 			if(im!= null){
 				if(im.getWidth() > imageWidth)
 					imageWidth = (int) im.getWidth(); 
-				imageHeight+= im.getHeight(); 
+				imageHeight += im.getHeight(); 
 			}
 		}
 	}
 	
-	double y = 0 ; 
-	double x = 0; 
-	int iter = 0; 
-	Image[] ims = new Image[num]; 
-	public void addGraphicsToNode(File f){
-		Image im = new Image(f.toURI().toString());
-		ims[iter] = im; 
-		try{
-			tempImage[iter] = ImageIO.read(f); 
-			
-		}catch(Exception e){}
-		gc.drawImage(im,0, y ,  im.getWidth(), im.getHeight());
-		y +=   im.getHeight(); 
-		if(x < im.getWidth() )
-			x = im.getWidth() ; 
-		iter++; 
-	}
-
 }
