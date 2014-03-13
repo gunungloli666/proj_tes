@@ -4,6 +4,8 @@ package fjr.tool;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.imageio.ImageIO;
 
@@ -313,8 +315,6 @@ public class MakePhoto extends Application {
 		}
 	}
 	
-	int a; 
-
 	private void calculatePrefferedSize(){
 		imageWidth = 0; 
 		imageHeight = 0;
@@ -330,10 +330,11 @@ public class MakePhoto extends Application {
 	}
 	
 	private void addLabeltoImage(){
+		int iterlabel = 0; 
 		for(int i=0; i< num; i++){
 			if(views[i].getImage() != null){
 				double width = views[i].getImage().getWidth(); 
-				Text text = new Text(huruf[i]);
+				Text text = new Text(huruf[iterlabel++]);
 				text.setFont(Font.font(null, FontWeight.BOLD, 18)) ;
 				text.setTranslateX(width - 20); 
 				text.setTranslateY(20);
@@ -344,11 +345,13 @@ public class MakePhoto extends Application {
 	
 	private void removeLabelfromImage(){
 		for(int i=0; i< num ;i++){
+			List<Node> listNode = new ArrayList<>();   
 			for(Node node: collectObject[i].getChildren()){
 				if(node instanceof Text){
-					System.out.println(((Text) node).getText()); 
+					listNode.add(node); 
 				}
 			}
+			collectObject[i].getChildren().removeAll(listNode);
 		}
 	}
 	
