@@ -1,7 +1,5 @@
 package org.fjr.main;
 
-import javax.swing.JFrame;
-
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.paint.Color;

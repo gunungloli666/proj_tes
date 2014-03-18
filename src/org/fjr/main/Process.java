@@ -390,13 +390,11 @@ public class Process {
         }
 
         save = new SaveCanvasToImage(canvas);
-        
         save.setMainFolder("hasil hasil"); 
         
-        fieldSnapshootName = new TextField() {{
-                setPrefSize(120,30);
-                setText("test");
-            }};
+		fieldSnapshootName = new TextField();
+		fieldSnapshootName.setPrefSize(120, 30);
+		fieldSnapshootName.setText("test");
 
         switch (typeInteraction) {
             case singleGrid:
@@ -432,22 +430,11 @@ public class Process {
 			}
 		});
                   
-            
-            
-            
-        root.getChildren().add(
-        		new VBox(){{
-        			setSpacing(10);
-        		    getChildren().addAll(canvas, canvasPlot);
-        		}}
-        );
-
-        
-
-
-        
-//        root.getChildren().add(flow);
-
+        VBox boxCanvas = new VBox(); 
+			boxCanvas.setSpacing(10);
+		    boxCanvas.getChildren().addAll(canvas, canvasPlot);
+		    
+        root.getChildren().add(boxCanvas);
         convexHull = new FastConvexHull();
 
         initProperty();
@@ -508,8 +495,7 @@ public class Process {
     boolean usingMedianValue = true; 
     
     public void createPerimeter() {
-    	
-        xMinimumOli = 10000.0;
+    	xMinimumOli = 10000.0;
         xMaximumOli = -10000.0;
         xMaximumWater = -10000.0;
         xMinimumWater = 100000.0;
@@ -1396,7 +1382,6 @@ public class Process {
         double xcenter = (xDomainOfFluida - xMin) * 0.5;
         double ycenter = (yDomainOfFluida - yMin) * 0.5;
         double radius_ = 1.3 * smoothingLength;
-
         Circle_ circle = new Circle_(xcenter,
                 ycenter,
                 radius_);
@@ -2010,79 +1995,67 @@ public class Process {
 
     private void addVariabelController() {
 
-        textStiffNear = new Text() {{
-                setText("SPH Stiff Near");
-        }};
+        textStiffNear = new Text();
+        textStiffNear.setText("SPH Stiff Near");
 
-        sphStiffNearSlider = new Slider(){{
-                setPrefHeight(20);
-                setPrefWidth(90);
-                setMin(0.0);
-                setMax(200);
-                setValue(MainProperty.sphStiffNear);
-                setOrientation(Orientation.HORIZONTAL);
-                setBlockIncrement(.1);
-        }};
+		sphStiffNearSlider = new Slider();
+		sphStiffNearSlider.setPrefHeight(20);
+		sphStiffNearSlider.setPrefWidth(90);
+		sphStiffNearSlider.setMin(0.0);
+		sphStiffNearSlider.setMax(200);
+		sphStiffNearSlider.setValue(MainProperty.sphStiffNear);
+		sphStiffNearSlider.setOrientation(Orientation.HORIZONTAL);
+		sphStiffNearSlider.setBlockIncrement(.1);
 
-        keteranganStiffNear = new Text() {{
-                setText(Double.toString(
-                		MainProperty.sphStiffNear));
-        }};
+        keteranganStiffNear = new Text() ;
+        keteranganStiffNear.setText(Double.toString(
+        		MainProperty.sphStiffNear));
 
-        textStiff = new Text() {{
-                setText("SPH StiffNess");
-        }};
+        textStiff = new Text(); 
+        textStiff.setText("SPH StiffNess");
 
-        sphStiffSlider = new Slider() {{
-                setPrefHeight(20);
-                setPrefWidth(90);
-                setMin(0.0);
-                setMax(500);
-                setValue(MainProperty.sphStiff);
-                setOrientation(Orientation.HORIZONTAL);
-        }};
+        sphStiffSlider = new Slider(); 
+        sphStiffSlider.setPrefHeight(20);
+        sphStiffSlider.setPrefWidth(90);
+        sphStiffSlider.setMin(0.0);
+        sphStiffSlider.setMax(500);
+        sphStiffSlider.setValue(MainProperty.sphStiff);
+        sphStiffSlider.setOrientation(Orientation.HORIZONTAL);
+        
+		keteranganStiff = new Text();
+		keteranganStiff.setText(Double.
+				toString(MainProperty.sphStiff));
 
-        keteranganStiff = new Text() {{
-                setText(Double.toString(
-                		MainProperty.sphStiff));
-        }};
+        textRestDenst = new Text();
+        textRestDenst.setText("SPH Rest Densitas");
 
-        textRestDenst = new Text() {{
-                setText("SPH Rest Densitas");
-        }};
+		sphRestDenstSlider = new Slider();
+		sphRestDenstSlider.setPrefHeight(20);
+		sphRestDenstSlider.setPrefWidth(90);
+		sphRestDenstSlider.setMin(0.0);
+		sphRestDenstSlider.setMax(1.0);
+		sphRestDenstSlider.setOrientation(Orientation.HORIZONTAL);
+		sphRestDenstSlider.setValue(MainProperty.sphRestDens);
 
-        sphRestDenstSlider = new Slider(){{
-                setPrefHeight(20);
-                setPrefWidth(90);
-                setMin(0.0);
-                setMax(1.0);
-                setOrientation(Orientation.HORIZONTAL);
-                setValue(MainProperty.sphRestDens);
-        }};
+		keteranganRestDenst = new Text();
+		keteranganRestDenst.setText(Double
+				.toString(MainProperty.sphRestDens));
 
-        keteranganRestDenst = new Text() {{
-                setText(Double.toString(
-                		MainProperty.sphRestDens));
-            }};
+        textTimeMult = new Text(); 
+        textTimeMult.setText("SPH Time Step");
 
-        textTimeMult = new Text() {{
-            setText("SPH Time Step");
-        }};
-
-        timeMultSlider = new Slider() {{
-                setPrefHeight(20);
-                setPrefWidth(90);
-                setMin(0.0);
-                setMax(0.1);
-                setValue(MainProperty.g_timeMult);
-                setOrientation(Orientation.HORIZONTAL);
-        }};
-
-        keteranganTimeMult = new Text() { {
-                setText(Double.toString(
-                		MainProperty.g_timeMult));
-        }};
-
+        timeMultSlider = new Slider();
+        timeMultSlider.setPrefHeight(20);
+        timeMultSlider.setPrefWidth(90);
+        timeMultSlider.setMin(0.0);
+        timeMultSlider.setMax(0.1);
+        timeMultSlider.setValue(MainProperty.g_timeMult);
+        timeMultSlider.setOrientation(Orientation.HORIZONTAL);
+        
+        keteranganTimeMult = new Text();
+        keteranganTimeMult.setText(Double.toString(
+        		MainProperty.g_timeMult));
+        
 		GridPane gridPane = new GridPane();
 		gridPane.setVgap(2);
 		gridPane.setHgap(5);
@@ -2098,30 +2071,30 @@ public class Process {
 		gridPane.add(textStiffNear, 0, 3);
 		gridPane.add(sphStiffNearSlider, 1, 3);
 		gridPane.add(keteranganStiffNear, 2, 3);
-
-        HBox box = new HBox(){{
-                setSpacing(10);
-                getChildren().addAll(
-                new Label("Tipe Fluida Kedua"),
-                comboBoxFluidaKedua = 
-                new ComboBox<TypeFluid>(){{
-                    getItems().addAll(
-                    		TypeFluid.SAME_REST_DENS_1,
-                    		TypeFluid.SAME_REST_DENS_2, 
-                    		TypeFluid.SAME_REST_DENS_3, 
-                    		TypeFluid.SAME_STIFF_1, 
-                    		TypeFluid.SAME_STIFF_2, 
-                    		TypeFluid.SAME_STIFF_3, 
-                    		TypeFluid.SAME_STIFFNEAR_1, 
-                    		TypeFluid.SAME_STIFFNEAR_2, 
-                    		TypeFluid.SAME_STIFFNEAR_3,
-                    		TypeFluid.OLI,
-                    		TypeFluid.GLICERIN, 
-                    		TypeFluid.MADU);
-                    setValue(TypeFluid.OLI);
-                }}
-            );
-        }};
+		
+		  Label labelTipeFluida = new Label("Tipe Fluida Kedua"); 
+		
+		 comboBoxFluidaKedua = new ComboBox<TypeFluid>();
+            comboBoxFluidaKedua.getItems().addAll(
+            		TypeFluid.SAME_REST_DENS_1,
+            		TypeFluid.SAME_REST_DENS_2, 
+            		TypeFluid.SAME_REST_DENS_3, 
+            		TypeFluid.SAME_STIFF_1, 
+            		TypeFluid.SAME_STIFF_2, 
+            		TypeFluid.SAME_STIFF_3, 
+            		TypeFluid.SAME_STIFFNEAR_1, 
+            		TypeFluid.SAME_STIFFNEAR_2, 
+            		TypeFluid.SAME_STIFFNEAR_3,
+            		TypeFluid.OLI,
+            		TypeFluid.GLICERIN, 
+            		TypeFluid.MADU);
+            
+            comboBoxFluidaKedua.setValue(TypeFluid.OLI);
+		
+		HBox box = new HBox();
+		box.setSpacing(10);
+		box.getChildren().addAll(labelTipeFluida,
+				comboBoxFluidaKedua);
 
         additionalController.getChildren().add(box);
         additionalController.getChildren().add(gridPane);
@@ -2135,17 +2108,14 @@ public class Process {
 
 		tipeInteraksi = new ToggleGroup();
 		
-		radioButton1 = new RadioButton("single"){{
-				setToggleGroup(tipeInteraksi);
-		}};
+		radioButton1 = new RadioButton("single"); 
+		radioButton1.setToggleGroup(tipeInteraksi);
 
-		radioButton2 = new RadioButton("parallel"){{
-				setToggleGroup(tipeInteraksi);
-		}};
+		radioButton2 = new RadioButton("parallel");
+		radioButton2.setToggleGroup(tipeInteraksi);
 
-		radioButton3 = new RadioButton("tree") {{
-				setToggleGroup(tipeInteraksi);
-			}};
+		radioButton3 = new RadioButton("tree");
+		radioButton3.setToggleGroup(tipeInteraksi);
 
 		switch (typeInteraction) {
 		case singleGrid:
@@ -2161,48 +2131,41 @@ public class Process {
 			break;
 		}
 
-		HBox boxTypeInteraction = new HBox(){{
-				setSpacing(5);
-				getChildren().
-				addAll(radioButton1,radioButton2, 
-						radioButton3);
-
-		}};
+		HBox boxTypeInteraction = new HBox();
+		boxTypeInteraction.setSpacing(5);
+		boxTypeInteraction.getChildren().
+		addAll(radioButton1,radioButton2,radioButton3);
 
 		toggleGroupTotalAnimation = new ToggleGroup();
+		
+		animasi_50 = new RadioButton("50"); 
+		animasi_50.setToggleGroup(toggleGroupTotalAnimation);
+		animasi_50.setUserData(50);
 
-		HBox boxNumberTimeStep = new HBox() {{
-				setSpacing(5);
-				getChildren().addAll(animasi_50 = 
-						new RadioButton("50") {{
-						setToggleGroup
-						(toggleGroupTotalAnimation);
-						setUserData(50);
-					}},
-					animasi_100 = new 
-					RadioButton("100"){{
-						setToggleGroup
-						(toggleGroupTotalAnimation);
-						setUserData(100);
-					}}, 
-					animasi_inf = new 
-					RadioButton("INF") {{
-						setToggleGroup
-						(toggleGroupTotalAnimation);
-						setUserData(Animation.INDEFINITE);
-					}}, 
-					sliderNumberIterasi = new 
-					Slider(50, 1000,50){{
-						setMaxWidth(70);
-						setSnapToTicks(true); 
-						setBlockIncrement(20);
-						setMajorTickUnit(10);
-						setMinorTickCount(10);
-					}},
-					textNumberIterasi = new Text("10")
-				);
-			}};
+		animasi_100 = new RadioButton("100"); 
+		animasi_100.setToggleGroup(toggleGroupTotalAnimation);
+		animasi_100.setUserData(100);
 
+		animasi_inf = new RadioButton("INF"); 
+		animasi_inf.setToggleGroup(toggleGroupTotalAnimation);
+		animasi_inf.setUserData(Animation.INDEFINITE);
+
+		sliderNumberIterasi = new 	Slider(50, 1000,50);
+		sliderNumberIterasi.setMaxWidth(70);
+		sliderNumberIterasi.setSnapToTicks(true); 
+		sliderNumberIterasi.setBlockIncrement(20);
+		sliderNumberIterasi.setMajorTickUnit(10);
+		sliderNumberIterasi.setMinorTickCount(10);
+		
+		textNumberIterasi = new Text("10");
+		
+		HBox boxNumberTimeStep = new HBox(); 
+				boxNumberTimeStep.setSpacing(5);
+				boxNumberTimeStep.getChildren().
+				addAll(animasi_50,animasi_100,
+						animasi_inf,sliderNumberIterasi, 
+						textNumberIterasi);
+				
 		switch (cycleCount) {
 		case 10:
 			animasi_50.setSelected(true);
@@ -2217,26 +2180,25 @@ public class Process {
 
 		toggleGroupTypeAnimation = new ToggleGroup();
 
-		HBox boxAnimationSpeed = new HBox() {{
-				setSpacing(10);
-				getChildren().addAll(fastAnimasi = 
-						new RadioButton("FAST") {{
-				setToggleGroup(toggleGroupTypeAnimation);
-				setUserData(Animation_Type.FAST_ANIMASI);
-					}},
+		fastAnimasi =  new RadioButton("FAST");
+		fastAnimasi.setToggleGroup(toggleGroupTypeAnimation);
+		fastAnimasi.setUserData(Animation_Type.FAST_ANIMASI);
 
-				slowAnimasi = new RadioButton("SLOW"){{
-						setToggleGroup
-						(toggleGroupTypeAnimation);
-						setUserData(Animation_Type.
-								SLOW_ANIMASI);
-					}}, 
-					medium_speed_animasi = 
-					new RadioButton("MEDIUM") {{
-				setToggleGroup(toggleGroupTypeAnimation);
-				setUserData(Animation_Type.MEDIUM_SPEED);
-					}});
-			}};
+		slowAnimasi = new RadioButton("SLOW");
+				slowAnimasi.setToggleGroup
+				(toggleGroupTypeAnimation);
+				slowAnimasi.setUserData(Animation_Type.
+						SLOW_ANIMASI);		
+				
+		medium_speed_animasi = new RadioButton("MEDIUM");
+		medium_speed_animasi.setToggleGroup(toggleGroupTypeAnimation);
+		medium_speed_animasi.setUserData(Animation_Type.MEDIUM_SPEED);
+		
+		HBox boxAnimationSpeed = new HBox() ; 
+				boxAnimationSpeed.setSpacing(10);
+				boxAnimationSpeed.getChildren().addAll(
+						fastAnimasi, slowAnimasi,
+						medium_speed_animasi);
 
 		switch (type_animasi) {
 		case SLOW_ANIMASI:
@@ -2250,74 +2212,66 @@ public class Process {
 			break;
 		}
 
-		HBox box = new HBox() {{
-				setSpacing(10);
-				getChildren().addAll(fieldSnapshootName, 
-					snapshotButton = new Button(){{
-						setText("TAKE A SNAP");
-						setPrefWidth(100);
-						setOnAction(new 
-								EventHandler
-								<ActionEvent>() {
-							@Override
-							public void handle
-							(ActionEvent arg0) {
-								saveCanvas(
-								fieldSnapshootName
-								.getText());
-							}
-						});
-					}}
-				);
-			}};
-
-		additionalController.getChildren().add(box);
-
-		checkBoxPerimeter = new CheckBox() {{
-				setText("using perimeter");
-				if (drawPerimeter) {
-					setSelected(true);
-				}
-			}};
-
-		comboBoxPerimeter = new ComboBox<String>() {{
-				setValue(perimeterBoth);
-				getItems().addAll(perimeterWater, 
-						perimeterOil, perimeterBoth);
-			}};
-
-		checkBoxConvexHull = new CheckBox() {{
-				setText("using convex hull");
-				if (drawConvexHull) {
-					setSelected(true);
-				}
-			}};
-
-		comboBoxConvexHull = new ComboBox<String>() {{
-				setValue(convexHullOil);
-				getItems().addAll(convexHullWater,
-						convexHullOil,
-						convexHullBoth, convexHullUnion);
-			}};
-			
-		checkBoxConcavHull = new CheckBox(){{
-			setText("using concav-hull");
-			if(draWConcaveHull){
-				setSelected(true); 
+		snapshotButton = new Button(); 
+		snapshotButton.setText("TAKE A SNAP");
+		snapshotButton.setPrefWidth(100);
+		snapshotButton.setOnAction(new 
+				EventHandler
+				<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent arg0) {
+				saveCanvas(
+				fieldSnapshootName
+				.getText());
 			}
-		}};  
+		});
 		
-		GridPane pane = new GridPane() {{
-				setVgap(10);
-				setHgap(10);
-				add(checkBoxPerimeter, 0, 0);
-				add(comboBoxPerimeter, 1, 0);
-				add(checkBoxConvexHull, 0, 1);
-				add(comboBoxConvexHull, 1, 1);
-				add(checkBoxConcavHull, 0, 2);
-			}}
-		;
+		HBox box = new HBox();
+		box.setSpacing(10);
+		box.getChildren().addAll(fieldSnapshootName, 
+			snapshotButton
+		);
+		
+		additionalController.getChildren().add(box);
+		checkBoxPerimeter = new CheckBox();
+		checkBoxPerimeter.setText("using perimeter");
+		if (drawPerimeter) {
+			checkBoxPerimeter.setSelected(true);
+		}
 
+		comboBoxPerimeter = new ComboBox<String>();
+		comboBoxPerimeter.setValue(perimeterBoth);
+		comboBoxPerimeter.getItems().addAll(perimeterWater, 
+				perimeterOil, perimeterBoth);
+		
+
+		checkBoxConvexHull = new CheckBox();
+		checkBoxConvexHull.setText("using convex hull");
+		if (drawConvexHull) {
+			checkBoxConvexHull.setSelected(true);
+		}
+		
+
+		comboBoxConvexHull = new ComboBox<String>();
+		comboBoxConvexHull.setValue(convexHullOil);
+		comboBoxConvexHull.getItems().addAll(convexHullWater,convexHullOil,
+				convexHullBoth, convexHullUnion);
+			
+		checkBoxConcavHull = new CheckBox();
+		checkBoxConcavHull.setText("using concav-hull");
+		if(draWConcaveHull){
+			checkBoxConcavHull.setSelected(true); 
+		}
+		
+		GridPane pane = new GridPane();
+		pane.setVgap(10);
+		pane.setHgap(10);
+		pane.add(checkBoxPerimeter, 0, 0);
+		pane.add(comboBoxPerimeter, 1, 0);
+		pane.add(checkBoxConvexHull, 0, 1);
+		pane.add(comboBoxConvexHull, 1, 1);
+		pane.add(checkBoxConcavHull, 0, 2);
+		
         flowPane.getChildren().addAll(boxTypeInteraction,
                 boxNumberTimeStep,
                 boxAnimationSpeed);
@@ -2329,54 +2283,47 @@ public class Process {
         flow.setVgap(10);
         flow.setHgap(10); 
 
-        buttonPlay = new Button(){{
-            setText("PLAY");
-            setPrefWidth(100);
-            setOnAction(new
-            		EventHandler<ActionEvent>() {
-                @Override
-                public void handle(ActionEvent arg0) {
-                    play();
-                }
-            });
-        }};
-
-    buttonPause = new Button(){{
-            setText("PAUSE");
-            setPrefWidth(100);
-            setOnAction(new 
-            		EventHandler<ActionEvent>() {
-                @Override
-                public void handle(ActionEvent arg0) {
-                    animation.pause();
-                }
-            });
-        }};
-
-    buttonRestart = new Button() {{
-            setText("RESTART");
-            setPrefWidth(100);
-            setOnAction(new 
-            		EventHandler<ActionEvent>() {
-                @Override
-                public void handle(ActionEvent arg0) {
-                    restart();
-                }
-            });
-        }};
-
-    buttonGenerateOil = new Button() {{
-            setText("ADD POLUTAN");
-            setPrefWidth(100);
-        }};
-
-        flow.add(buttonPlay, 0, 0);
-        flow.add(buttonPause, 1, 0); 
-        flow.add(buttonRestart, 0, 1); 
-        flow.add(buttonGenerateOil, 1,1); 
+        buttonPlay = new Button();
+        buttonPlay.setText("PLAY");
+        buttonPlay.setPrefWidth(100);
+        buttonPlay.setOnAction(new
+        		EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent arg0) {
+                play();
+            }
+        });
         
-        flowPane.getChildren().add(flow);
-    }
+
+		buttonPause = new Button();
+		buttonPause.setText("PAUSE");
+		buttonPause.setPrefWidth(100);
+		buttonPause.setOnAction(new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent arg0) {
+				animation.pause();
+			}
+		});
+
+		buttonRestart = new Button();
+		buttonRestart.setText("RESTART");
+		buttonRestart.setPrefWidth(100);
+		buttonRestart.setOnAction(new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent arg0) {
+				restart();
+			}
+		});
+
+		buttonGenerateOil = new Button();
+		buttonGenerateOil.setText("ADD POLUTAN");
+		buttonGenerateOil.setPrefWidth(100);
+		flow.add(buttonPlay, 0, 0);
+		flow.add(buttonPause, 1, 0);
+		flow.add(buttonRestart, 0, 1);
+		flow.add(buttonGenerateOil, 1, 1);
+		flowPane.getChildren().add(flow);
+	}
 
     VBox additionalController;
     
