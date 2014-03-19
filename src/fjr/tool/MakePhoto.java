@@ -31,6 +31,7 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.stage.WindowEvent;
 
 public class MakePhoto extends Application {
 
@@ -86,6 +87,14 @@ public class MakePhoto extends Application {
 		primaryStage.setScene(new Scene(root, width + 150, height + 100 ));
 		primaryStage.show();
 		iniGUI();
+		stage.setOnCloseRequest(new EventHandler<WindowEvent>() {
+			@Override
+			public void handle(WindowEvent arg0) {
+				if(secondStage != null ){
+					secondStage.close();
+				}
+			}
+		});
 	}
 	
     BufferedImage finalImage ; 
@@ -93,146 +102,131 @@ public class MakePhoto extends Application {
 
 	private void iniGUI() {
 		tempImage = new BufferedImage[num];
-		nodeGraphics = new VBox(){{
-			setSpacing(0);
-			}}; 
+		nodeGraphics = new VBox();
+		nodeGraphics.setSpacing(0);
 			
-		snapshotButton = new Button("SNAPSHOT"){{
-			setPrefWidth(100); 
-			setOnAction(new EventHandler<ActionEvent>() {
-				@Override
-				public void handle(ActionEvent arg0) {	
-					calculateMaximumSize();
-
-					createSnapshoot(nodeGraphics);
-				}
-			});
-		}}; 
+		snapshotButton = new Button("SNAPSHOT");
+		snapshotButton.setPrefWidth(100); 
+		snapshotButton.setOnAction(new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent arg0) {	
+				calculateMaximumSize();
+				createSnapshoot(nodeGraphics);
+			}
+		});
 		
-		buttonReset = new Button("RESET"){{
-			setPrefWidth(100); 
-			setOnAction(new EventHandler<ActionEvent>() {
-				@Override
-				public void handle(ActionEvent arg0) {	
-					
-				}
-				
-			});
-		}}; 
+		buttonReset = new Button("RESET");
+		buttonReset.setPrefWidth(100); 
+		buttonReset.setOnAction(new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent arg0) {	
+				resetImage(); 
+			}
+			
+		});
 		
-		overlay = new Button("OVERLAY"){{
-			setPrefWidth(100); 
-			setOnAction(new EventHandler<ActionEvent>() {
-				@Override
-				public void handle(ActionEvent arg0) {
-					calculatePrefferedSize(); 
-					Group tempNode = new Group(); 
-					for(int i=0; i< num; i++){
-						if(( views[i].getImage()) != null){
-							ImageView tempView = new ImageView(); 
-							tempView.setImage(views[i].getImage());
-							tempView.setBlendMode(BlendMode.DARKEN);
-							tempNode.getChildren().add(tempView) ;  
-						}
+		overlay = new Button("OVERLAY");
+		overlay.setPrefWidth(100); 
+		overlay.setOnAction(new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent arg0) {
+				calculatePrefferedSize(); 
+				Group tempNode = new Group(); 
+				for(int i=0; i< num; i++){
+					if(( views[i].getImage()) != null){
+						ImageView tempView = new ImageView(); 
+						tempView.setImage(views[i].getImage());
+						tempView.setBlendMode(BlendMode.DARKEN);
+						tempNode.getChildren().add(tempView) ;  
 					}
-					createSnapshoot(tempNode); 			
 				}
-			});
-		}}; 
+				createSnapshoot(tempNode); 			
+			}
+		});
 		
-		box = new VBox() {{
-			setSpacing(5);
-			setTranslateY(10);
-		}};	
+		box = new VBox();
+		box.setSpacing(5);
+		box.setTranslateY(10);
 	    
 		for (int i = 0; i < buttons.length; i++) {
 			final int j = i; 
-			buttons[i] = new Button("ADD") {{
-					setPrefWidth(60);
-					setOnAction(new EventHandler<ActionEvent>() {
-						@Override
-						public void handle(ActionEvent arg0) {
-							FileChooser fileChooser = new FileChooser();
-							fileChooser.getExtensionFilters().add(filter1);
-							fileChooser.setInitialDirectory(f);
-							File ff = fileChooser.showOpenDialog(stage);
-							if(ff != null){
-								addGraphicsToGroup(ff, views[j]);
-								disableButton(buttons[j]);
-							}
-						}
-					});
-				}};
+			buttons[i] = new Button("ADD");
+			buttons[i].setPrefWidth(60);
+			buttons[i].setOnAction(new EventHandler<ActionEvent>() {
+				@Override
+				public void handle(ActionEvent arg0) {
+					FileChooser fileChooser = new FileChooser();
+					fileChooser.getExtensionFilters().add(filter1);
+					fileChooser.setInitialDirectory(f);
+					File ff = fileChooser.showOpenDialog(stage);
+					if(ff != null){
+						addGraphicsToGroup(ff, views[j]);
+						disableButton(buttons[j]);
+					}
+				}
+			});
 				
 				
-		   final Button b = new Button("CLEAR"){{
-			   setPrefWidth(60); 
-			   setOnAction(new EventHandler<ActionEvent>() {
+			final Button b = new Button("CLEAR");
+			b.setPrefWidth(60);
+			b.setOnAction(new EventHandler<ActionEvent>() {
 				@Override
 				public void handle(ActionEvent arg0) {
 					removeImage(views[j]);
-					enableButton(buttons[j]); 
+					enableButton(buttons[j]);
 				}
 			});
-		   }}; 
 		   
-			HBox boxH = new HBox(){{
-				setSpacing(5); 
-				getChildren().addAll(buttons[j],b); 
-
-			}}; 
+			HBox boxH = new HBox();
+			boxH.setSpacing(5); 
+			boxH.getChildren().addAll(buttons[j],b); 
 				
 			box.getChildren().add(boxH);
 		}
 		
-		addLabel = new Button("LABEL"){{
-			setPrefWidth(100);
-			setOnAction(new EventHandler<ActionEvent >() {
-				@Override
-				public void handle(ActionEvent arg0) {
-					addLabeltoImage();
-				}
-			});
-		}}; 
+		addLabel = new Button("LABEL");
+		addLabel.setPrefWidth(100);
+		addLabel.setOnAction(new EventHandler<ActionEvent >() {
+			@Override
+			public void handle(ActionEvent arg0) {
+				addLabeltoImage();
+			}
+		});
 		
-		removeLabel = new Button("REMOVE"){{
-			setPrefWidth(100); 
-			setOnAction(new EventHandler<ActionEvent>() {
-				@Override
-				public void handle(ActionEvent arg0) {
-					removeLabelfromImage(); 
-				}
-			});
-		}}; 
+		
+		removeLabel = new Button("REMOVE");
+		removeLabel.setPrefWidth(100); 
+		removeLabel.setOnAction(new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent arg0) {
+				removeLabelfromImage(); 
+			}
+		});
 		
 		// tambahkan control operasi
 		box.getChildren().addAll(snapshotButton, overlay, 
-				buttonReset , addLabel, removeLabel 
-				); 
+				buttonReset , addLabel, removeLabel); 
 		
 		// tambahkan imageview ke box
-		for(int i=0; i< num; i++){
-			final int j = i; 
-			nodeGraphics.getChildren().add(
-						collectObject[i] = new 
-						Group(){{
-							getChildren().add(views[j] = new ImageView());
-						}} 
-					); 
+		for (int i = 0; i < num; i++) {
+			ImageView view = new ImageView();
+			Group gr = new Group();
+			gr.getChildren().add(view);
+			collectObject[i] = gr;
+			views[i] = view;
+			nodeGraphics.getChildren().add(collectObject[i]);
 		}
 		
 		// tambahkan box ke scrollpane
-		root.getChildren().add(
-				new HBox() {{
-				setSpacing(10);
-				getChildren().addAll(
-						new ScrollPane() {{
-						setPrefSize(width, height);
-						setContent(nodeGraphics);
-					}}, 
-					box);
-			}}
-		);
+		HBox box11 = new HBox();
+		box11.setSpacing(10);
+		
+		ScrollPane scrollPane11 = new ScrollPane(); 
+		scrollPane11.setPrefSize(width, height);
+		scrollPane11.setContent(nodeGraphics);
+	
+		box11.getChildren().addAll(scrollPane11, box); 
+		root.getChildren().add(box11);
 	}
 	
 	Stage secondStage; 
@@ -242,39 +236,50 @@ public class MakePhoto extends Application {
 		Group root  = new Group(); 
 		VBox box = new VBox(); 
 		box.setSpacing(5);
+	
+		int numofexistingimage = 0;
+		
+		for(int i=0; i< num;i++){
+			if(views[i].getImage() != null){
+				numofexistingimage++; 
+			}
+		}
+		if(numofexistingimage == 0 ){
+			return; 
+		}
 		
 		wim = new WritableImage(((int) imageWidth) , 
 				((int) imageHeight ));
 		
 		node.snapshot(null, wim); 
 		
-		box.getChildren().addAll(
-				new ScrollPane(){{
-					setPrefSize(400, 400);
-					setContent(
-							new ImageView(){{
-								setImage(wim); 
-							}}); 
-				}}); 
+		ImageView imageView = new ImageView();
+		imageView.setImage(wim);
+		
+		
+		ScrollPane scrollPaneImageView = new ScrollPane(); 
+		scrollPaneImageView.setPrefSize(400, 400);
+		scrollPaneImageView. setContent(imageView);
+		
+		box.getChildren().addAll( scrollPaneImageView); 
 		
 		final BufferedImage image = 
 				SwingFXUtils.fromFXImage(wim, null);
 		
-		box.getChildren().add(
-				new HBox(){{
-					setSpacing(0);
-					getChildren().addAll(
-							new Button("SAVE"){{
-								setPrefWidth(100);
-								setOnAction(new
-										EventHandler<ActionEvent>() {
-									@Override
-									public void handle(ActionEvent arg0) {
-										saveImage(image);
-									}
-								});
-							}});
-				}}); 
+		HBox boxSave = new HBox();
+		boxSave.setSpacing(0);
+		
+		Button buttonSave = new  Button("SAVE"); 
+		buttonSave.setPrefWidth(100);
+		buttonSave.setOnAction(new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent arg0) {
+				saveImage(image);
+			}
+		});
+		
+		boxSave.getChildren().addAll(buttonSave);
+		box.getChildren().add(boxSave);
 		
 		root.getChildren().add(box); 
 		secondStage.setScene(new Scene(root));
@@ -286,9 +291,10 @@ public class MakePhoto extends Application {
         fileChooser.getExtensionFilters().add(filter2);
         fileChooser.setInitialDirectory(f);
 		try {
-			File ff = fileChooser.showSaveDialog(stage);
+			File ff = fileChooser.showSaveDialog(secondStage);
 			if (ff != null) {
 				ImageIO.write(image, "png", ff);
+				secondStage.close();
 			}
 		} catch (Exception e) {}
 	}
@@ -313,6 +319,13 @@ public class MakePhoto extends Application {
 			imageHeight -= height;
 			view.setImage(null);
 		}
+	}
+	
+	private void resetImage(){
+		for(int i=0; i< num; i++){
+			removeImage(views[i]);
+		}
+		removeLabelfromImage();
 	}
 	
 	private void calculatePrefferedSize(){
