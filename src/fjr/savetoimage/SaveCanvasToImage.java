@@ -15,7 +15,7 @@ import javafx.scene.transform.Translate;
 public class SaveCanvasToImage {
 	
 	String namaRoot = "E:/gambar tesis/"; 
-	String nameFolder ; 
+	String nameFolder  = "hasil hasil"; 
 	File file = null ;
 	Canvas  node; 
 	final WritableImage wim; 
