@@ -211,7 +211,8 @@ public class Process {
     public int gridY;
     
     Canvas canvasPlot ; 
-    GraphicsContext gcCanvasPlot; 
+    GraphicsContext gcCanvasPlot;  // canvas yang digunakan untuk menggambar 
+    								// pelacakan partikel 
 
     ArrayList<SPhysicsParticle> listSPHysicsParticle
             = new ArrayList<>();
@@ -296,6 +297,12 @@ public class Process {
 		}
 		if (drawConvexHull) {
 			createConvexHull();
+			double luasOli = areaOfConvexHull(oilConvexHull); 
+			setKeteranganArea(fieldLuasOli, format.format(luasOli));
+			double luasWater = areaOfConvexHull(waterConvexHUll); 
+			setKeteranganArea(fieldLuasWater, format.format(luasWater)); 
+			double persentasi = luasOli/luasWater * 100; 
+			setKeteranganArea(fieldPersentaseLuas, format.format(persentasi));
 		}
 		if (draWConcaveHull) {
 			createConcavHull();
@@ -303,6 +310,11 @@ public class Process {
 		redrawCircle();
 		iterasiCount++;
 		setKeteranganIterasi();
+	}
+	
+	
+	public void  setKeteranganArea(TextField field, String luas){
+		field.setText(luas);
 	}
          
     public void setKeteranganIterasi(){
@@ -335,6 +347,11 @@ public class Process {
     
     
     Button snapshotButton; 
+    
+    
+    // Ini untuk menampilkan luas area dari sebaran fluida
+    TextField fieldLuasOli, fieldLuasWater, fieldPersentaseLuas ; 
+    
     
     @SuppressWarnings("unchecked")
     public Process() throws Exception {
@@ -433,6 +450,38 @@ public class Process {
         VBox boxCanvas = new VBox(); 
 			boxCanvas.setSpacing(10);
 		    boxCanvas.getChildren().addAll(canvas, canvasPlot);
+		    
+		 HBox boxAreaConvexHull = new HBox() ;
+		 boxAreaConvexHull.setSpacing(5); 
+		 
+		 fieldLuasOli = new TextField(); 
+		 fieldLuasOli.setPrefWidth(60); 
+		 fieldLuasOli.setEditable(false);
+		 fieldLuasWater = new TextField(); 
+		 fieldLuasWater.setPrefWidth(60);
+		 fieldLuasWater.setEditable(false);
+		 fieldPersentaseLuas = new TextField(); 
+		 fieldPersentaseLuas.setPrefWidth(60); 
+		 fieldPersentaseLuas.setEditable(false); 
+		 
+		 
+		 Label labelLuasAreaOli = new Label("Area Oli"); 
+		 boxAreaConvexHull.getChildren().add(labelLuasAreaOli); 
+		 boxAreaConvexHull.getChildren().add(fieldLuasOli); 
+		 
+		 Label labelLuasAreaWater = new Label("Area Water"); 
+		 boxAreaConvexHull.getChildren().add(labelLuasAreaWater);
+		 boxAreaConvexHull.getChildren().add(fieldLuasWater); 
+		 
+		 Label nilaiPersentasiLabel = new Label("persentasi"); 
+		 Label logoPersentasi = new Label("%"); 
+		 
+		 boxAreaConvexHull.getChildren().add(nilaiPersentasiLabel); 
+		 boxAreaConvexHull.getChildren().add(fieldPersentaseLuas); 
+		 boxAreaConvexHull.getChildren().add(logoPersentasi); 
+		 
+		 boxCanvas.getChildren().add(boxAreaConvexHull); 
+		 
 		    
         root.getChildren().add(boxCanvas);
         convexHull = new FastConvexHull();
@@ -631,29 +680,54 @@ public class Process {
 		}
 	}
     
+    
+    /*  ini untuk menentukan area convex hull
+     *  Jika convex hull iterasinya searah jarum jam, maka ini iterasinya berlawanan
+     *  dengan arah jarum jam...  atau dimulai dari akhir iterasi 
+     *  dari convex-hull
+     */ 
+    public double  areaOfConvexHull(ArrayList<Point> listPoint){
+    	double result = 0D; 
+    	int size = listPoint.size(); 
+    	double x ,y; 
+    	for(int i = 0 ; i < size - 1 ; i++){
+    		x = listPoint.get(i).getX(); 
+    		y = listPoint.get(i+1).getY(); 
+    		result = result + (x*y); 
+    	}
+    	x = listPoint.get(size-1).getX();
+    	y = listPoint.get(0).getY();
+    	result = result + (x*y); 
+    	for(int i = 0 ; i < size - 1 ; i++){
+    		y = listPoint.get(i).getY(); 
+    		x = listPoint.get(i+1).getX(); 
+    		result = result - (x *y);
+    	}
+    	x = listPoint.get(0).getX();
+    	y = listPoint.get(size - 1).getY();
+    	result = result - (x*y) ; 
+    	return result * 0.5; 
+    }
+    
     ArrayList<VPoint> listPoint = new ArrayList<VPoint>(); 
     boolean draWConcaveHull = false;
 	VHalfEdge outeredge;
 	
-    public void  createConcavHull(){
-    	listPoint.clear();
-    	for(int i=0; i< listOilParticle.size(); i++){
-    		SPHParticle p = listOilParticle.get(i);
-    		int x = (int) (p.getX() * drawingFactorX);
-    		int y = (int) ( p.getY()* drawingFactorY); 
-    		listPoint.add(triangular.createPoint(x,y));
-    	}
-
-//     outeredge = triangular.getOuterEdge();
-    }
+	public void createConcavHull() {
+		listPoint.clear();
+		for (int i = 0; i < listOilParticle.size(); i++) {
+			SPHParticle p = listOilParticle.get(i);
+			int x = (int) (p.getX() * drawingFactorX);
+			int y = (int) (p.getY() * drawingFactorY);
+			listPoint.add(triangular.createPoint(x, y));
+		}
+		// outeredge = triangular.getOuterEdge();
+	}
     
     public void createConvexHull() {
-        oilConvexHull = convexHull.
-                execute(listOilParticle);
-        waterConvexHUll = convexHull.
-                execute(listWaterParticle);
-        unionConvexHull = convexHull.
-                execute(allParticle);
+        oilConvexHull = convexHull.execute(listOilParticle);
+        waterConvexHUll = convexHull.execute(listWaterParticle);
+        unionConvexHull = convexHull.execute(allParticle);
     }
     
 	public void drawConcavHull(GraphicsContext gc, Color c) {
@@ -1103,7 +1177,7 @@ public class Process {
                 paralellInteraction(secondInteraction);
         }
     }
-
+  
     public void changeListToArray() {
         particleSPH = new 
         		SPhysicsParticle[listSPHysicsParticle
@@ -1149,7 +1223,7 @@ public class Process {
     // digunakan untuk menambah efek partikel yang 
     // lagi jatuh 
     public void addFallingParticle(){
-    	double x = yMaxLinkedList; 
+//    	double x = yMaxLinkedList; 
     	
     }
     
@@ -1198,18 +1272,15 @@ public class Process {
 //            			drawPerimeter(gc,Color.GREEN,
 //                        xPerimeterWater,
 //                        yPerimeterWater);
-            			
             			drawPerimeter(gcCanvasPlot,Color.GREEN,
                                 xPerimeterWater,
                                 yPerimeterWater);
-            			
             } else if (perimeterState.
             		equals(perimeterOil)){
 //            			drawPerimeter(gc,
 //                        Color.MEDIUMORCHID,
 //                        xPerimeterOil,
 //                        yPerimeterOil);
-            			
             			drawPerimeter(gcCanvasPlot,
                                 Color.MEDIUMORCHID,
                                 xPerimeterOil,
@@ -1224,7 +1295,6 @@ public class Process {
 //                        Color.MEDIUMORCHID,
 //                        xPerimeterOil,
 //                        yPerimeterOil);
-            			
             			drawPerimeter(gcCanvasPlot,
                                 Color.GREEN,
                                 xPerimeterWater,
@@ -1237,28 +1307,23 @@ public class Process {
                     equals(perimeterUnion)) {
             }
         }
-
         if (drawConvexHull) {
             if (convexHullState.
                     equals(convexHullOil)) {
 //                drawConvexHull(gc,
 //                        Color.MAROON,
 //                        oilConvexHull);
-                
                 drawConvexHull(gcCanvasPlot,
                         Color.MAROON,
                         oilConvexHull);
-                
             } else if (convexHullState.
                     equals(convexHullWater)) {
 //                drawConvexHull(gc,
 //                        Color.MAGENTA,
 //                        waterConvexHUll);
-                
                 drawConvexHull(gcCanvasPlot,
                         Color.MAGENTA,
                         waterConvexHUll);
-                
             } else if (convexHullState
                     .equals(convexHullBoth)) {
 //                drawConvexHull(gc,
@@ -1267,7 +1332,6 @@ public class Process {
 //                drawConvexHull(gc,
 //                        Color.MAGENTA,
 //                        waterConvexHUll);
-                
                 drawConvexHull(gcCanvasPlot,
                         Color.MAROON,
                         oilConvexHull);
@@ -1276,10 +1340,8 @@ public class Process {
                         waterConvexHUll);
             }
         }
-        
         if(draWConcaveHull){
 //        	drawConcavHull(gc, Color.GREEN);
-        	
         	drawConcavHull(gcCanvasPlot, Color.GREEN);
         }
     }
@@ -1306,37 +1368,34 @@ public class Process {
         }
     }
 
-    public <T extends Point> void
-            drawConvexHull(GraphicsContext gc,
-                    Color color,
-                    ArrayList<T> list) {
+    // jadi dalam penggambaran convex hull ini, tidak dimasukkan partikel yang 
+    // terakhir 
+    public <T extends Point> void drawConvexHull(GraphicsContext gc,
+                    Color color, ArrayList<T> list) {
         gc.setStroke(color);
         gc.beginPath();
         gc.setLineWidth(1);
-        double x = list.get(0).getX() * drawingFactorX;
-        double y = list.get(0).getY() * drawingFactorY;
+        int initIndex = 0 ; 
+        double x = list.get(initIndex).getX() * drawingFactorX;
+        double y = list.get(initIndex).getY() * drawingFactorY;
         y = canvasHeight  - y;
-        gc.moveTo(x,
-                y);
+        gc.moveTo(x, y);
         gc.stroke();
-        for (int i = 0; i < list.size(); i++) {
+        for (int i = initIndex ; i < (int) (list.size()); i++) {
             x = list.get(i).getX() * drawingFactorX;
             y = list.get(i).getY() * drawingFactorY;
             y = canvasHeight - y;
-            gc.lineTo(x,
-                    y);
+            gc.lineTo(x,y);
             gc.stroke();
         }
         x = list.get(0).getX() * drawingFactorX;
         y = list.get(0).getY() * drawingFactorY;
         y = canvasHeight - y;
-        gc.lineTo(x,
-                y);
+        gc.lineTo(x, y);
         gc.stroke();
     }
 
-    public void removeOverlap
-    (ArrayList<SPHParticle> list) {
+    public void removeOverlap(ArrayList<SPHParticle> list) {
         for (int i = 0; i < list.size(); i++) {
             SPHParticle p1 = list.get(i);
             for (int j = list.size() - 1; j > i; j--) {
