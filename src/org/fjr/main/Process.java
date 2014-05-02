@@ -56,234 +56,223 @@ import org.fjr.particle.TypeParticle;
 
 import signalprocesser.voronoi.VPoint;
 import signalprocesser.voronoi.VoronoiAlgorithm;
-import signalprocesser.voronoi.representation.triangulation
-				.TriangulationRepresentation;
+import signalprocesser.voronoi.representation.triangulation.TriangulationRepresentation;
 import signalprocesser.voronoi.representation.triangulation.VHalfEdge;
 import fjr.savetoimage.SaveCanvasToImage;
 
 public class Process {
 
-    private ArrayList<SPHParticle> listFluid;
-    private ArrayList<Circle> listCircle;
+	private ArrayList<SPHParticle> listFluid;
+	private ArrayList<Circle> listCircle;
 
-    private static double smoothingLength = 3.8
-            * MainProperty.g_radius;
-    
-    private double xwidth = 500.0;
-    private double ywidth = 500.0;
-    
-    private double canvasWidth  = xwidth ; 
-    private double canvasHeight = ywidth - 300.0 ; 
-    
-    private DecimalFormat format = new 
-    		DecimalFormat("###.##");
-    
-    private double xMax = 3.0;
-    private double xMin = 0.0;
-    private double yMax = 3.0;
-    private double yMin = 0.0;
+	private static double smoothingLength = 3.8 * MainProperty.g_radius;
 
-    private double xMaxLinkedList = xMax; 
-    private double yMaxLinkedList = yMax; 
-    private double xMinLinkedList = xMin; 
-    private double yMinLinkedList = yMin; 
-    
-    private static double timeStep = 1.5;
+	private double xwidth = 500.0;
+	private double ywidth = 500.0;
 
-    public MarchingType marchingtype
-            = MarchingType.Fluids_Javascript;
-    
-    private Timeline animation;
-    private Button buttonPause;
-    private Button buttonPlay;
-    private Button buttonRestart;
-    private Button buttonGenerateOil;
+	private double canvasWidth = xwidth;
+	private double canvasHeight = ywidth - 300.0;
 
-    private double dtFrame = 0.0;
-    
-    private double g_SubStep = 1.0;
-    
-    private double drawingFactorX = (xwidth - 0.0) 
-    		/ (xMax - xMin);
-    
-    private double drawingFactorY = (ywidth - 0.0) 
-    		/ (yMax - yMin);
-    
-    private final GraphicsContext gc;
+	private DecimalFormat format = new DecimalFormat("###.##");
 
-    private double maxRange = 1.0 * smoothingLength;
+	private double xMax = 3.0;
+	private double xMin = 0.0;
+	private double yMax = 3.0;
+	private double yMin = 0.0;
 
-    private ArrayList<SPHParticle> listBoundary
-            = new ArrayList<>();
-    public ArrayList<SPHParticle> allParticle;
+	private double xMaxLinkedList = xMax;
+	private double yMaxLinkedList = yMax;
+	private double xMinLinkedList = xMin;
+	private double yMinLinkedList = yMin;
 
-    ArrayList<SPhysicsParticle> allsphysicsParticle
-            = new ArrayList<>();
-    ArrayList<SPhysicsParticle> fluidsphysics=
-    		new ArrayList<>();
-    ArrayList<SPhysicsParticle> boundarysphysicsq
-            = new ArrayList<>();
-    ArrayList<SPhysicsParticle> oilsphysics =
-    		new ArrayList<>();
+	private static double timeStep = 1.5;
 
-    // step posisi awal 
-    private double step;
-    
-    private boolean usingStaggeredGrid = true;
-    private boolean usingBoundaryParticle = false;
-    int cycleCount = Timeline.INDEFINITE;
+	public MarchingType marchingtype = MarchingType.Fluids_Javascript;
 
-    final Canvas canvas;
-    final Group root;
-    ForkJoinPool pool;
-    ParallelInteraction<SPHParticle> paralelProcess;
-    private double yDomainOfFluida = yMax * 0.33;
-    private double xDomainOfFluida = xMax * 0.33;
+	private Timeline animation;
+	private Button buttonPause;
+	private Button buttonPlay;
+	private Button buttonRestart;
+	private Button buttonGenerateOil;
 
-    double sceneWidth = 700, sceneheight = 500;
+	private double dtFrame = 0.0;
 
-    private ArrayList<SPHParticle> listOilParticle;
+	private double g_SubStep = 1.0;
 
-    public enum TypeDrawer{sphere, circle, canvas}
+	private double drawingFactorX = (xwidth - 0.0) / (xMax - xMin);
 
-    public enum TypeSimulasi{singlePhase, twoPhase;}
+	private double drawingFactorY = (ywidth - 0.0) / (yMax - yMin);
 
-    TypeSimulasi typeSimulasi = TypeSimulasi.twoPhase;
-    
-    private TypeDrawer typeDrawer;
+	private final GraphicsContext gc;
 
-    TypeInteraction typeInteraction = TypeInteraction
-    		.parallel;
+	private double maxRange = 1.0 * smoothingLength;
 
-    public double getWidth() {
-        return xwidth + 300;
-    }
+	private ArrayList<SPHParticle> listBoundary = new ArrayList<>();
+	public ArrayList<SPHParticle> allParticle;
 
-    public double getHeight() {
-        return ywidth;
-    }
+	ArrayList<SPhysicsParticle> allsphysicsParticle = new ArrayList<>();
+	ArrayList<SPhysicsParticle> fluidsphysics = new ArrayList<>();
+	ArrayList<SPhysicsParticle> boundarysphysicsq = new ArrayList<>();
+	ArrayList<SPhysicsParticle> oilsphysics = new ArrayList<>();
 
-    public TypeDrawer getTypeDrawer() {
-        return typeDrawer;
-    }
+	// step posisi awal
+	private double step;
 
-    // untuk controller simulasi 
-    Slider sphStiffSlider, sphStiffNearSlider,
-            sphRestDenstSlider,
-            timeMultSlider;
-    Text textStiff, textStiffNear, textRestDenst,
-            textTimeMult;
-    Text keteranganStiff, keteranganStiffNear,
-            keteranganRestDenst,
-            keteranganTimeMult;
+	private boolean usingStaggeredGrid = true;
+	private boolean usingBoundaryParticle = false;
+	int cycleCount = Timeline.INDEFINITE;
 
-    ToggleGroup tipeInteraksi;
-    RadioButton radioButton1, radioButton2, radioButton3;
+	final Canvas canvas;
+	final Group root;
+	ForkJoinPool pool;
+	ParallelInteraction<SPHParticle> paralelProcess;
+	private double yDomainOfFluida = yMax * 0.33;
+	private double xDomainOfFluida = xMax * 0.33;
 
-    ToggleGroup toggleGroupTotalAnimation;
-    RadioButton animasi_50, animasi_100, animasi_inf;
+	double sceneWidth = 700, sceneheight = 500;
 
-    ToggleGroup toggleGroupTypeAnimation;
-    ToggleButton toggleButtonFastAnimation,
-            toggleButtonSlowAnimation;
-    
-    ComboBox<Integer> comboJumlahSimulasi;
+	private ArrayList<SPHParticle> listOilParticle;
 
-    // untuk memilih kecepatan animasi 
-    RadioButton slowAnimasi, fastAnimasi,
-            medium_speed_animasi;
+	public enum TypeDrawer {
+		sphere, circle, canvas
+	}
 
-    // untuk menggambar perimeter dan convex hull
-    CheckBox usingConvexHull;
-    
-    CheckBox usingPerimeter;
+	public enum TypeSimulasi {
+		singlePhase, twoPhase;
+	}
 
-    final double textX = -50;
+	TypeSimulasi typeSimulasi = TypeSimulasi.twoPhase;
 
-    public boolean usingSphere() {
-        if (typeDrawer == TypeDrawer.sphere) {
-            return true;
-        }
-        return false;
-    }
+	private TypeDrawer typeDrawer;
 
-    public int gridX;
-    public int gridY;
-    
-    Canvas canvasPlot ; 
-    GraphicsContext gcCanvasPlot;  // canvas yang digunakan untuk menggambar 
-    								// pelacakan partikel 
+	TypeInteraction typeInteraction = TypeInteraction.parallel;
 
-    ArrayList<SPhysicsParticle> listSPHysicsParticle
-            = new ArrayList<>();
-    SPhysicsParticle[] particleSPH;
+	public double getWidth() {
+		return xwidth + 300;
+	}
 
-    Kernel kernel;
+	public double getHeight() {
+		return ywidth;
+	}
 
-    final String ANIMATION_INFINITY = "INFINITY";
+	public TypeDrawer getTypeDrawer() {
+		return typeDrawer;
+	}
 
-    enum Animation_Type {SLOW_ANIMASI, 
-    	FAST_ANIMASI, MEDIUM_SPEED}
+	// untuk controller simulasi
+	Slider sphStiffSlider, sphStiffNearSlider, sphRestDenstSlider,
+			timeMultSlider;
+	Text textStiff, textStiffNear, textRestDenst, textTimeMult;
+	Text keteranganStiff, keteranganStiffNear, keteranganRestDenst,
+			keteranganTimeMult;
 
-    Animation_Type type_animasi = 
-    		Animation_Type.SLOW_ANIMASI;
-    ArrayList<Integer> numberIterasi =
-    		new ArrayList<>();
+	ToggleGroup tipeInteraksi;
+	RadioButton radioButton1, radioButton2, radioButton3;
 
-    SaveCanvasToImage save;
-    TextField fieldSnapshootName;
+	ToggleGroup toggleGroupTotalAnimation;
+	RadioButton animasi_50, animasi_100, animasi_inf;
 
-    boolean saveToFile = false;
-    boolean drawPerimeter = false;
-    boolean drawConvexHull = false;
+	ToggleGroup toggleGroupTypeAnimation;
+	ToggleButton toggleButtonFastAnimation, toggleButtonSlowAnimation;
 
-    CheckBox saveCheckBox;
-    
-    int iterasiCount = 0;
+	ComboBox<Integer> comboJumlahSimulasi;
 
-    AnchorPane anchorpaneController;
+	// untuk memilih kecepatan animasi
+	RadioButton slowAnimasi, fastAnimasi, medium_speed_animasi;
 
-    ArrayList<SPHParticle> listWaterParticle
-            = new ArrayList<SPHParticle>();
+	// untuk menggambar perimeter dan convex hull
+	CheckBox usingConvexHull;
 
-    ArrayList<Point> oilConvexHull, waterConvexHUll,
-            unionConvexHull;
+	CheckBox usingPerimeter;
 
-    FastConvexHull convexHull;
+	final double textX = -50;
 
-    CheckBox checkBoxPerimeter, checkBoxConvexHull;
-    
-    ComboBox<String> comboBoxPerimeter,
-            comboBoxConvexHull;
+	public boolean usingSphere() {
+		if (typeDrawer == TypeDrawer.sphere) {
+			return true;
+		}
+		return false;
+	}
 
-    CheckBox checkBoxConcavHull; 
-    
-    final String perimeterWater = "WATER";
-    final String perimeterOil = "OIL";
-    final String perimeterBoth = "BOTH";
-    final String perimeterUnion = "UNION";
+	public int gridX;
+	public int gridY;
+
+	Canvas canvasPlot;
+	GraphicsContext gcCanvasPlot; // canvas yang digunakan untuk menggambar
+									// pelacakan partikel
+
+	ArrayList<SPhysicsParticle> listSPHysicsParticle = new ArrayList<>();
+	SPhysicsParticle[] particleSPH;
+
+	Kernel kernel;
+
+	final String ANIMATION_INFINITY = "INFINITY";
+
+	enum Animation_Type {
+		SLOW_ANIMASI, FAST_ANIMASI, MEDIUM_SPEED
+	}
+
+	Animation_Type type_animasi = Animation_Type.SLOW_ANIMASI;
+	ArrayList<Integer> numberIterasi = new ArrayList<>();
+
+	SaveCanvasToImage save;
+	
+	TextField fieldSnapshootName;
+
+	
+	
+	
+	boolean saveToFile = false;
+	boolean drawPerimeter = false;
+	boolean drawConvexHull = false;
+
+	CheckBox saveCheckBox;
+
+	int iterasiCount = 0;
+
+	AnchorPane anchorpaneController;
+
+	ArrayList<SPHParticle> listWaterParticle = new ArrayList<SPHParticle>();
+
+	ArrayList<Point> oilConvexHull, waterConvexHUll, unionConvexHull;
+
+	FastConvexHull convexHull;
+
+	CheckBox checkBoxPerimeter, checkBoxConvexHull;
+
+	ComboBox<String> comboBoxPerimeter, comboBoxConvexHull;
+
+	CheckBox checkBoxConcavHull;
+
+	final String perimeterWater = "WATER";
+	final String perimeterOil = "OIL";
+	final String perimeterBoth = "BOTH";
+	final String perimeterUnion = "UNION";
 
 	final String convexHullWater = "WATER";
 	final String convexHullOil = "OIL";
 	final String convexHullBoth = "BOTH";
 	final String convexHullUnion = "UNION";
 
-    enum PerimeterStates {WATER, OIL, BOTH, UNION}
+	enum PerimeterStates {
+		WATER, OIL, BOTH, UNION
+	}
 
-    enum ConvexHullStates {WATER, OIL, BOTH, UNION}
+	enum ConvexHullStates {
+		WATER, OIL, BOTH, UNION
+	}
 
-    String perimeterState = perimeterWater;
-    String convexHullState = convexHullOil;
+	String perimeterState = perimeterWater;
+	String convexHullState = convexHullOil;
 
-    PerimeterStates perimeterStates = 
-    		PerimeterStates.OIL;
-    ConvexHullStates convexHullStates = 
-    		ConvexHullStates.OIL;
+	PerimeterStates perimeterStates = PerimeterStates.OIL;
+	ConvexHullStates convexHullStates = ConvexHullStates.OIL;
 
-    Text textIterasi ; 
-    
-	final EventHandler<ActionEvent> event = new
-			EventHandler<ActionEvent>() {
+	Text textIterasi;
+	
+	
+	
+	final EventHandler<ActionEvent> event = new EventHandler<ActionEvent>() {
 		@Override
 		public void handle(ActionEvent arg0) {
 			animasi();
@@ -294,15 +283,22 @@ public class Process {
 		defaultStep();
 		if (drawPerimeter) {
 			createPerimeter();
+			double meanTinggiOli = meanOfPerimeter(yPerimeterOil);
+			setKeteranganTinggiPerimeter(fieldTinggiOli, format.format(meanTinggiOli));
+			double meanTinggiUnion = meanOfPerimeter(yPerimeterUnion); 
+			setKeteranganTinggiPerimeter(fieldTinggiUnion, format.format(meanTinggiUnion)); 
+			double presentasi = meanTinggiOli/ meanTinggiUnion * 100; 
+			setKeteranganTinggiPerimeter(fieldPresentasiTinggi, 
+					format.format(presentasi));
 		}
 		if (drawConvexHull) {
 			createConvexHull();
-			double luasOli = areaOfConvexHull(oilConvexHull); 
-			setKeteranganArea(fieldLuasOli, format.format(luasOli));
-			double luasWater = areaOfConvexHull(waterConvexHUll); 
-			setKeteranganArea(fieldLuasWater, format.format(luasWater)); 
-			double persentasi = luasOli/luasWater * 100; 
-			setKeteranganArea(fieldPersentaseLuas, format.format(persentasi));
+			double luasOli = areaOfConvexHull(oilConvexHull);
+			setKeteranganLuasArea(fieldLuasOli, format.format(luasOli));
+			double luasSeluruhFluida = areaOfConvexHull(unionConvexHull);
+			setKeteranganLuasArea(fieldLuasWater, format.format(luasSeluruhFluida));
+			double persentasi = luasOli / luasSeluruhFluida * 100;
+			setKeteranganLuasArea(fieldPersentaseLuas, format.format(persentasi));
 		}
 		if (draWConcaveHull) {
 			createConcavHull();
@@ -311,248 +307,276 @@ public class Process {
 		iterasiCount++;
 		setKeteranganIterasi();
 	}
+
+	public void setKeteranganTinggiPerimeter(TextField field, String tinggi){
+		field.setText(tinggi);
+	}
 	
-	
-	public void  setKeteranganArea(TextField field, String luas){
+	public void setKeteranganLuasArea(TextField field, String luas) {
 		field.setText(luas);
 	}
-         
-    public void setKeteranganIterasi(){
-    	gc.setStroke(Color.BLACK);
-    	gc.strokeText(("ITERASI: "+Integer.toString
-    			(iterasiCount) ), 10 , 20 );
-    	
-    	gcCanvasPlot.setStroke(Color.BLACK);
-    	gcCanvasPlot.strokeText(("ITERASI: "+Integer.toString
-    			(iterasiCount) ), 10 , 20 );
-    }
-            
-    ComboBox<TypeFluid> comboBoxFluidaKedua;
-    
-    TypeFluid fluidaKedua = TypeFluid.OLI;
-    
-    String fluidaJenisOli = "OLI";
-    
-    String fluidaJenisGliserin = "GLISERIN";
-    
-    String tipeFluidaKedua = fluidaJenisOli;
-            
-    boolean runningState = false; 
-                
-    // untuk membuat concavHull... 
-    TriangulationRepresentation triangular;
 
-    Thread thread; 
-    boolean runningThread = true; 
-    
-    
-    Button snapshotButton; 
-    
-    
-    // Ini untuk menampilkan luas area dari sebaran fluida
-    TextField fieldLuasOli, fieldLuasWater, fieldPersentaseLuas ; 
-    
-    
-    @SuppressWarnings("unchecked")
-    public Process() throws Exception {
+	public void setKeteranganIterasi() {
+		gc.setStroke(Color.BLACK);
+		gc.strokeText(("ITERASI: " + Integer.toString(iterasiCount)), 10, 20);
+
+		gcCanvasPlot.setStroke(Color.BLACK);
+		gcCanvasPlot.strokeText(("ITERASI: " + Integer.toString(iterasiCount)),
+				10, 20);
+	}
+
+	ComboBox<TypeFluid> comboBoxFluidaKedua;
+
+	TypeFluid fluidaKedua = TypeFluid.OLI;
+
+	String fluidaJenisOli = "OLI";
+
+	String fluidaJenisGliserin = "GLISERIN";
+
+	String tipeFluidaKedua = fluidaJenisOli;
+
+	boolean runningState = false;
+
+	// untuk membuat concavHull...
+	TriangulationRepresentation triangular;
+
+	Thread thread;
+	boolean runningThread = true;
+
+	Button snapshotButton;
+
+	// Ini untuk menampilkan luas area dari sebaran fluida
+	TextField fieldLuasOli, fieldLuasWater, fieldPersentaseLuas;
+	
+	// ini untuk menampilkan tinggi rata-rata perimeter 
+	TextField fieldTinggiOli, fieldTinggiUnion, fieldPresentasiTinggi; 
+
+	@SuppressWarnings("unchecked")
+	public Process() throws Exception {
 		triangular = new TriangulationRepresentation();
-		triangular.setCalcCutOff(new 
-				TriangulationRepresentation.CalcCutOff() {
+		triangular.setCalcCutOff(new TriangulationRepresentation.CalcCutOff() {
 			@Override
 			public int calculateCutOff(
-					TriangulationRepresentation 
-					representation) {
+					TriangulationRepresentation representation) {
 				return 12; // kayaknya ini nilai ideal...
 			}
 		});
-		
-        kernel = new WendlandKernel();
-        this.typeDrawer = TypeDrawer.canvas;
-        pool = new ForkJoinPool();
-        root = new Group();
-        canvas = new Canvas( canvasWidth,
-        			canvasHeight );
-        
-        canvasPlot = new Canvas(canvasWidth,  canvasHeight); 
-        gcCanvasPlot = canvasPlot.getGraphicsContext2D(); 
-        
-        canvas.setStyle("-fx-background-color: transparent;");
-        
-        canvas.addEventHandler(MouseEvent.MOUSE_CLICKED,
-        		new EventHandler<MouseEvent>() {
+
+		kernel = new WendlandKernel();
+		this.typeDrawer = TypeDrawer.canvas;
+		pool = new ForkJoinPool();
+		root = new Group();
+		canvas = new Canvas(canvasWidth, canvasHeight);
+
+		canvasPlot = new Canvas(canvasWidth, canvasHeight);
+		gcCanvasPlot = canvasPlot.getGraphicsContext2D();
+
+		canvas.setStyle("-fx-background-color: transparent;");
+
+		canvas.addEventHandler(MouseEvent.MOUSE_CLICKED,
+				new EventHandler<MouseEvent>() {
 					@Override
-					public void handle(MouseEvent e){
+					public void handle(MouseEvent e) {
 					}
-				}); 
-        
-        gc = canvas.getGraphicsContext2D();
-        listFluid = new ArrayList<>();
-        listOilParticle = new ArrayList<>();
-        listCircle = new ArrayList<>();
-        allParticle = new ArrayList<>();
+				});
 
-        gridX = (int) ((xMax - xMin) /
-        		(2.0 * smoothingLength));
-        gridY = (int) ((yMax - yMin) / 
-        		(2.0 * smoothingLength));
-        
-        hash = new ArrayList[gridX][gridY];
+		gc = canvas.getGraphicsContext2D();
+		listFluid = new ArrayList<>();
+		listOilParticle = new ArrayList<>();
+		listCircle = new ArrayList<>();
+		allParticle = new ArrayList<>();
 
-        step = 0.9 * smoothingLength;
+		gridX = (int) ((xMax - xMin) / (2.0 * smoothingLength));
+		gridY = (int) ((yMax - yMin) / (2.0 * smoothingLength));
 
-        for (int i = 0; i < hash.length; i++) {
-            for (int j = 0; j < hash[0].length; j++) {
-                hash[i][j] = new ArrayList<>();
-            }
-        }
+		hash = new ArrayList[gridX][gridY];
 
-        save = new SaveCanvasToImage(canvas);
-        save.setMainFolder("hasil hasil"); 
-        
+		step = 0.9 * smoothingLength;
+
+		for (int i = 0; i < hash.length; i++) {
+			for (int j = 0; j < hash[0].length; j++) {
+				hash[i][j] = new ArrayList<>();
+			}
+		}
+
+		save = new SaveCanvasToImage(canvas);
+		save.setMainFolder("hasil hasil");
+
 		fieldSnapshootName = new TextField();
 		fieldSnapshootName.setPrefSize(120, 30);
 		fieldSnapshootName.setText("test");
 
-        switch (typeInteraction) {
-            case singleGrid:
-            case doubleGrid:
-            case parallel:
-                this.initLinkedList();
-                break;
-            case tree:
-                initTree();
-                break;
-        }
+		switch (typeInteraction) {
+		case singleGrid:
+		case doubleGrid:
+		case parallel:
+			this.initLinkedList();
+			break;
+		case tree:
+			initTree();
+			break;
+		}
 
-        animation = new Timeline();
-        animation.getKeyFrames().addAll(
-                new KeyFrame(changeSpeed(), event));
-        
-        thread = new Thread(new Runnable() {
+		animation = new Timeline();
+		animation.getKeyFrames().addAll(new KeyFrame(changeSpeed(), event));
+
+		thread = new Thread(new Runnable() {
 			@Override
 			public void run() {
-				while(runningThread){
+				while (runningThread) {
 					Platform.runLater(new Runnable() {
 						@Override
 						public void run() {
-							try{
+							try {
 								Thread.sleep(500);
-							}catch(Exception e){
-								System.out.println("error"
-										+ " thread"); 
+							} catch (Exception e) {
+								System.out.println("error" + " thread");
 							}
 						}
 					});
 				}
 			}
 		});
-                  
-        VBox boxCanvas = new VBox(); 
-			boxCanvas.setSpacing(10);
-		    boxCanvas.getChildren().addAll(canvas, canvasPlot);
-		    
-		 HBox boxAreaConvexHull = new HBox() ;
-		 boxAreaConvexHull.setSpacing(5); 
-		 
-		 fieldLuasOli = new TextField(); 
-		 fieldLuasOli.setPrefWidth(60); 
-		 fieldLuasOli.setEditable(false);
-		 fieldLuasWater = new TextField(); 
-		 fieldLuasWater.setPrefWidth(60);
-		 fieldLuasWater.setEditable(false);
-		 fieldPersentaseLuas = new TextField(); 
-		 fieldPersentaseLuas.setPrefWidth(60); 
-		 fieldPersentaseLuas.setEditable(false); 
-		 
-		 
-		 Label labelLuasAreaOli = new Label("Area Oli"); 
-		 boxAreaConvexHull.getChildren().add(labelLuasAreaOli); 
-		 boxAreaConvexHull.getChildren().add(fieldLuasOli); 
-		 
-		 Label labelLuasAreaWater = new Label("Area Water"); 
-		 boxAreaConvexHull.getChildren().add(labelLuasAreaWater);
-		 boxAreaConvexHull.getChildren().add(fieldLuasWater); 
-		 
-		 Label nilaiPersentasiLabel = new Label("persentasi"); 
-		 Label logoPersentasi = new Label("%"); 
-		 
-		 boxAreaConvexHull.getChildren().add(nilaiPersentasiLabel); 
-		 boxAreaConvexHull.getChildren().add(fieldPersentaseLuas); 
-		 boxAreaConvexHull.getChildren().add(logoPersentasi); 
-		 
-		 boxCanvas.getChildren().add(boxAreaConvexHull); 
-		 
-		    
-        root.getChildren().add(boxCanvas);
-        convexHull = new FastConvexHull();
 
-        initProperty();
+		VBox boxCanvas = new VBox();
+		boxCanvas.setSpacing(10);
+		boxCanvas.getChildren().addAll(canvas, canvasPlot);
 
-        AnchorPane pane = getControlPane();
-        root.getChildren().add(pane);
-        pane.setTranslateX(xwidth - 220);
+		HBox boxLuasAreaConvexHull = new HBox();
+		boxLuasAreaConvexHull.setSpacing(5);
 
-        animation.setCycleCount(cycleCount);
-        animation.setAutoReverse(false);
+		fieldLuasOli = new TextField();
+		fieldLuasOli.setPrefWidth(60);
+		fieldLuasOli.setEditable(false);
+		fieldLuasWater = new TextField();
+		fieldLuasWater.setPrefWidth(60);
+		fieldLuasWater.setEditable(false);
+		fieldPersentaseLuas = new TextField();
+		fieldPersentaseLuas.setPrefWidth(60);
+		fieldPersentaseLuas.setEditable(false);
+	
+		fieldTinggiOli = new TextField(); 
+		fieldTinggiOli.setPrefWidth(60);
+		fieldTinggiOli.setEditable(false); 
+		fieldTinggiUnion = new TextField(); 
+		fieldTinggiUnion.setPrefWidth(60); 
+		fieldTinggiUnion.setEditable(false); 
+		fieldPresentasiTinggi = new TextField(); 
+		fieldPresentasiTinggi.setPrefWidth(60); 
+		fieldPresentasiTinggi.setEditable(false); 
 
-        setKeteranganIterasi(); 
-    }
+		Label labelLuasAreaOli = new Label("Area Oli");
+		boxLuasAreaConvexHull.getChildren().add(labelLuasAreaOli);
+		boxLuasAreaConvexHull.getChildren().add(fieldLuasOli);
 
-    double deltaX, deltaY, stepPerimeter;
-    double margin;
+		Label labelLuasAreaWater = new Label("Area Water");
+		boxLuasAreaConvexHull.getChildren().add(labelLuasAreaWater);
+		boxLuasAreaConvexHull.getChildren().add(fieldLuasWater);
 
-    public void initPerimeter() {
-        deltaX = xMax - xMin;
-        deltaY = yMax - yMin;
-        stepPerimeter = deltaX / numberPerimeter;
-        double m = yMin;
-        for (int i = 0; i < xIntervalOfWater.length; i++) {
-            xIntervalOfWater[i] = m;
-            m += stepPerimeter;
-        }
-        margin = stepPerimeter / 2.5;
-    }
+		Label nilaiPersentasiLabel = new Label("persentasi");
+		Label logoPersentasi = new Label("%");
 
-    // ini digunakan untuk plot perimeter
-    int numberPerimeter = 100;
-    
-    double[] xIntervalOfWater = 
-    		new double[numberPerimeter],
-        yIntervalOfWater = new double[numberPerimeter],
-    xIntervalOfWaterPlot = new double[numberPerimeter];
+		boxLuasAreaConvexHull.getChildren().add(nilaiPersentasiLabel);
+		boxLuasAreaConvexHull.getChildren().add(fieldPersentaseLuas);
+		boxLuasAreaConvexHull.getChildren().add(logoPersentasi);
 
-    double[] xIntervalOfOilPlot = 
-    		new double[numberPerimeter];
-    double[] xIntervalOfOil = 
-    		new double[numberPerimeter];
-    double[] yIntervalOfOil = 
-    		new double[numberPerimeter];
+		boxCanvas.getChildren().add(boxLuasAreaConvexHull);
+		
+		HBox boxTinggiPerimeter = new HBox(); 
+		boxTinggiPerimeter.setSpacing(10); 
+		Label labelTinggiOli = new Label("Tinggi Oli"); 
+		boxTinggiPerimeter.getChildren().add(labelTinggiOli);
+		boxTinggiPerimeter.getChildren().add(fieldTinggiOli); 
+		
+		Label labelTinggiWater = new Label("Tinggi Keduanya"); 
+		boxTinggiPerimeter.getChildren().add(labelTinggiWater); 
+		boxTinggiPerimeter.getChildren().add(fieldTinggiUnion); 
+		
+		Label labelpresentasiTinggi = new Label("Presentasi Tinggi"); 
+		boxTinggiPerimeter.getChildren().add(labelpresentasiTinggi); 
+		boxTinggiPerimeter.getChildren().add(fieldPresentasiTinggi); 
+		boxTinggiPerimeter.getChildren().add(new Label("%"));  
+		
+		boxCanvas.getChildren().add(boxTinggiPerimeter); 
+		
 
-    double xMinimumOli, xMaximumOli;
-    double xMinimumWater, xMaximumWater;
+		root.getChildren().add(boxCanvas);
+		
+		convexHull = new FastConvexHull();
 
-    ArrayList<Double> xPerimeterWater = new ArrayList<>();
-    ArrayList<Double> yPerimeterWater = new ArrayList<>();
+		initProperty();
 
-    ArrayList<Double> xPerimeterOil = new ArrayList<>();
-    ArrayList<Double> yPerimeterOil = new ArrayList<>();
+		AnchorPane pane = getControlPane();
+		root.getChildren().add(pane);
+		pane.setTranslateX(xwidth - 220);
 
-    Slider sliderNumberIterasi; 
-    Text textNumberIterasi; 
+		animation.setCycleCount(cycleCount);
+		animation.setAutoReverse(false);
 
-    boolean usingMaksimumValue = true; 
-    boolean usingMedianValue = true; 
-    
-    public void createPerimeter() {
-    	xMinimumOli = 10000.0;
-        xMaximumOli = -10000.0;
-        xMaximumWater = -10000.0;
-        xMinimumWater = 100000.0;
+		setKeteranganIterasi();
+	}
 
-        xPerimeterWater.clear();
-        yPerimeterWater.clear();
-        xPerimeterOil.clear();
-        yPerimeterOil.clear();
+	double deltaX, deltaY, stepPerimeter;
+	double margin;
+
+	public void initPerimeter() {
+		deltaX = xMax - xMin;
+		deltaY = yMax - yMin;
+		stepPerimeter = deltaX / numberPerimeter;
+		double m = yMin;
+		for (int i = 0; i < xIntervalOfWater.length; i++) {
+			xIntervalOfWater[i] = m;
+			m += stepPerimeter;
+		}
+		margin = stepPerimeter / 2.5;
+	}
+
+	// ini digunakan untuk plot perimeter
+	int numberPerimeter = 100;
+
+	double[] xIntervalOfWater = new double[numberPerimeter],
+			yIntervalOfWater = new double[numberPerimeter],
+			xIntervalOfWaterPlot = new double[numberPerimeter];
+
+	double[] xIntervalOfOilPlot = new double[numberPerimeter];
+	double[] xIntervalOfOil = new double[numberPerimeter];
+	double[] yIntervalOfOil = new double[numberPerimeter];
+
+	double xMinimumOli, xMaximumOli;
+	double xMinimumWater, xMaximumWater;
+	double xMinimumUnion, xMaximumUnion; 
+
+	ArrayList<Double> xPerimeterWater = new ArrayList<>();
+	ArrayList<Double> yPerimeterWater = new ArrayList<>();
+	
+	ArrayList<Double> xPerimeterOil = new ArrayList<>();
+	ArrayList<Double> yPerimeterOil = new ArrayList<>();
+	
+	ArrayList<Double> xPerimeterUnion = new ArrayList<>(); 
+	ArrayList<Double> yPerimeterUnion = new ArrayList<>(); 
+
+	Slider sliderNumberIterasi;
+	Text textNumberIterasi;
+
+	boolean usingMaksimumValue = true;
+	boolean usingMedianValue = true;
+
+	public void createPerimeter() 
+	{
+		xMinimumOli = 10000.0;
+		xMaximumOli = -10000.0;
+		xMaximumWater = -10000.0;
+		xMinimumWater = 100000.0;
+		xMinimumUnion = 100000.0; 
+		xMaximumUnion = -1000000.0; 
+
+		xPerimeterWater.clear();
+		yPerimeterWater.clear();
+		xPerimeterOil.clear();
+		yPerimeterOil.clear();
+		
+		xPerimeterUnion.clear(); 
+		yPerimeterUnion.clear();
 
 		for (int i = 0; i < listOilParticle.size(); i++) {
 			SPHParticle p = listOilParticle.get(i);
@@ -571,16 +595,29 @@ public class Process {
 				xMaximumWater = p.getX();
 			}
 		}
+		
+		for(int i=0; i < allParticle.size() ; i++){
+			SPHParticle p = allParticle.get(i); 
+			if(p.getX() < xMinimumUnion){
+				xMinimumUnion = p.getX(); 
+			}else if(p.getX() > xMaximumUnion){
+				xMaximumUnion = p.getX(); 
+			}
+		}
 
 		double deltaOil = xMaximumOli - xMinimumOli;
 		double oilInterval = deltaOil / numberPerimeter;
-	
-		double oilMargin = oilInterval * 0.3;
+		double oilMargin = oilInterval * 0.5;
 
 		double deltaWater = xMaximumWater - xMinimumWater;
 		double waterInterval = deltaWater / numberPerimeter;
 		double waterMargin = waterInterval * 0.5;
 
+		double deltaUnion = xMaximumUnion - xMinimumUnion; 
+		double unionInterval = deltaUnion / numberPerimeter; 
+		double unionMargin = unionInterval * 0.5; 
+		
+		
 		if (usingMaksimumValue) {
 			double waterStep = xMinimumWater;
 			for (int i = 0; i < numberPerimeter; i++) {
@@ -589,8 +626,7 @@ public class Process {
 				for (int j = 0; j < listWaterParticle.size(); j++) {
 					SPHParticle p = listWaterParticle.get(j);
 					if (p.getX() < (waterStep + waterMargin)
-							&& p.getX() >= (waterStep
-									-waterMargin)) {
+							&& p.getX() >= (waterStep - waterMargin)) {
 						if (p.getY() > max) {
 							max = p.getY();
 							change = true;
@@ -612,107 +648,139 @@ public class Process {
 				for (int j = 0; j < listOilParticle.size(); j++) {
 					SPHParticle p = listOilParticle.get(j);
 					if (p.getX() < (oilStep + oilMargin)
-							&& p.getX() >= (oilStep-
-									oilMargin)) {
+							&& p.getX() >= (oilStep - oilMargin)) {
 						if (p.getY() > max) {
 							max = p.getY();
 							change = true;
 						}
 					}
 				}
-				/* jika nilai max berubah... 
-				 * karena bisa jadi terdapat jarak yang 
-				 * cukup jauh antara partikel yang satu 
-				 * dengan partikel lain sehingga nilai ini 
-				 * tidak berubah.
-				 * */
-				
+				/*
+				 * jika nilai max berubah... karena bisa jadi terdapat jarak
+				 * yang cukup jauh antara partikel yang satu dengan partikel
+				 * lain sehingga nilai ini tidak berubah.
+				 */
+
 				if (change) {
 					xPerimeterOil.add(oilStep);
 					yPerimeterOil.add(max);
 				}
 				oilStep += oilInterval;
 			}
-		} else if (usingMedianValue) {
-			double waterStep = xMinimumWater;
+			
+			
+			// ini untuk seluruh partikel
+			double unionStep = xMinimumUnion; 
 			for(int i=0; i< numberPerimeter; i++){
-				double sum = 0.; 
-				boolean change = false;
-				int count = 0; 
-				for(int j=0; j < listWaterParticle. size(); j++){
-					SPHParticle p = listWaterParticle.get(j); 
-					if(p.getX() < (waterStep + waterMargin )
-							&&(p.getX() >= (waterStep-
-									waterMargin))){
-						sum+= p.getY();
-						count++; 
-						change = true; 
+				double max = -10000; 
+				boolean change = false; 
+				for(int j=0; j <allParticle.size(); j++){
+					SPHParticle p = allParticle.get(j); 
+					if(p.getX() < (unionStep + unionMargin)
+							&& 
+							p.getX()>= (unionStep - unionMargin)){
+						if(p.getY() > max){
+							max = p.getY(); 
+							change = true; 
+						}
 					}
 				}
+				
 				if(change){
-					sum = sum/count; 
+					xPerimeterUnion.add(unionStep);
+					yPerimeterUnion.add(max); 
+				}
+				unionStep = unionStep + unionInterval; 
+			}
+			
+		} else if (usingMedianValue) {
+			double waterStep = xMinimumWater;
+			for (int i = 0; i < numberPerimeter; i++) {
+				double sum = 0.;
+				boolean change = false;
+				int count = 0;
+				for (int j = 0; j < listWaterParticle.size(); j++) {
+					SPHParticle p = listWaterParticle.get(j);
+					if (p.getX() < (waterStep + waterMargin)
+							&& (p.getX() >= (waterStep - waterMargin))) {
+						sum += p.getY();
+						count++;
+						change = true;
+					}
+				}
+				if (change) {
+					sum = sum / count;
 					xPerimeterWater.add(waterStep);
 					yPerimeterWater.add(sum);
 				}
-				waterStep+= waterInterval; 
+				waterStep += waterInterval;
 			}
 			double oilStep = xMinimumOli;
-			for(int i=0; i<numberPerimeter;i++){
-				double sum = 0.; 
-				boolean change = false; 
-				int count= 0; 
-				for(int j=0; j< listOilParticle.size(); j++){
-					SPHParticle p = listOilParticle.get(j); 
-					if(p.getX() <(oilStep + oilMargin)&&
-						p.getX() >= (oilStep - oilMargin)	){
-						sum += p.getY(); 
+			for (int i = 0; i < numberPerimeter; i++) {
+				double sum = 0.;
+				boolean change = false;
+				int count = 0;
+				for (int j = 0; j < listOilParticle.size(); j++) {
+					SPHParticle p = listOilParticle.get(j);
+					if (p.getX() < (oilStep + oilMargin)
+							&& p.getX() >= (oilStep - oilMargin)) {
+						sum += p.getY();
 						change = true;
-						count ++; 
+						count++;
 					}
 				}
-				if(change){
-					sum = sum/count; 
+				if (change) {
+					sum = sum / count;
 					xPerimeterOil.add(oilStep);
 					yPerimeterOil.add(sum);
 				}
-				oilStep+= oilInterval; 
+				oilStep += oilInterval;
 			}
 		}
 	}
-    
-    
-    /*  ini untuk menentukan area convex hull
-     *  Jika convex hull iterasinya searah jarum jam, maka ini iterasinya berlawanan
-     *  dengan arah jarum jam...  atau dimulai dari akhir iterasi 
-     *  dari convex-hull
-     */ 
-    public double  areaOfConvexHull(ArrayList<Point> listPoint){
-    	double result = 0D; 
-    	int size = listPoint.size(); 
-    	double x ,y; 
-    	for(int i = 0 ; i < size - 1 ; i++){
-    		x = listPoint.get(i).getX(); 
-    		y = listPoint.get(i+1).getY(); 
-    		result = result + (x*y); 
-    	}
-    	x = listPoint.get(size-1).getX();
-    	y = listPoint.get(0).getY();
-    	result = result + (x*y); 
-    	for(int i = 0 ; i < size - 1 ; i++){
-    		y = listPoint.get(i).getY(); 
-    		x = listPoint.get(i+1).getX(); 
-    		result = result - (x *y);
-    	}
-    	x = listPoint.get(0).getX();
-    	y = listPoint.get(size - 1).getY();
-    	result = result - (x*y) ; 
-    	return result * 0.5; 
-    }
-    
-    ArrayList<VPoint> listPoint = new ArrayList<VPoint>(); 
-    boolean draWConcaveHull = false;
+
+	public double meanOfPerimeter(ArrayList<Double> listPerimeterY) {
+		double result = 0D;
+		double size = listPerimeterY.size();
+		for (int i = 0; i < size; i++) {
+			result += listPerimeterY.get(i);
+		}
+		result = result / size;
+		return result;
+	}
+
+	/*
+	 * ini untuk menentukan area convex hull Jika convex hull iterasinya searah
+	 * jarum jam, maka ini iterasinya berlawanan dengan arah jarum jam... atau
+	 * dimulai dari akhir iterasi dari convex-hull
+	 */
+	public double areaOfConvexHull(ArrayList<Point> listPoint) {
+		double result = 0D;
+		int size = listPoint.size();
+		double x, y;
+		for (int i = 0; i < size - 1; i++) {
+			x = listPoint.get(i).getX();
+			y = listPoint.get(i + 1).getY();
+			result = result + (x * y);
+		}
+		x = listPoint.get(size - 1).getX();
+		y = listPoint.get(0).getY();
+		result = result + (x * y);
+		for (int i = 0; i < size - 1; i++) {
+			y = listPoint.get(i).getY();
+			x = listPoint.get(i + 1).getX();
+			result = result - (x * y);
+		}
+		x = listPoint.get(0).getX();
+		y = listPoint.get(size - 1).getY();
+		result = result - (x * y);
+		return result * 0.5;
+	}
+
+	ArrayList<VPoint> listPoint = new ArrayList<VPoint>();
+	boolean draWConcaveHull = false;
 	VHalfEdge outeredge;
-	
+
 	public void createConcavHull() {
 		listPoint.clear();
 		for (int i = 0; i < listOilParticle.size(); i++) {
@@ -723,13 +791,13 @@ public class Process {
 		}
 		// outeredge = triangular.getOuterEdge();
 	}
-    
-    public void createConvexHull() {
-        oilConvexHull = convexHull.execute(listOilParticle);
-        waterConvexHUll = convexHull.execute(listWaterParticle);
-        unionConvexHull = convexHull.execute(allParticle);
-    }
-    
+
+	public void createConvexHull() {
+		oilConvexHull = convexHull.execute(listOilParticle);
+		waterConvexHUll = convexHull.execute(listWaterParticle);
+		unionConvexHull = convexHull.execute(allParticle);
+	}
+
 	public void drawConcavHull(GraphicsContext gc, Color c) {
 		if (triangular == null)
 			System.out.println("triangular null..  ");
@@ -752,250 +820,247 @@ public class Process {
 		} while ((curredge = curredge.next).next != null
 				&& curredge != outeredge);
 	}
-	
-    boolean plotParameter = true;
 
-    // simpan canvas ke file png
-    public void saveCanvas(int number) {
-        String s = Integer.toString(number);
-        save.save(s);
-    }
-    
-    public void saveCanvas(String a){
-    	String s = "" + a; 
-    	save.save(s); 
-    }
+	boolean plotParameter = true;
 
-    Duration durasi = Duration.millis(100);
+	// simpan canvas ke file png
+	public void saveCanvas(int number) {
+		String s = Integer.toString(number);
+		save.save(s);
+	}
 
-    public Duration changeSpeed() {
-        switch (type_animasi) {
-            case FAST_ANIMASI:
-                durasi = Duration.millis(20);
-                break;
-            case SLOW_ANIMASI:
-                durasi = Duration.millis(500);
-                break;
-            case MEDIUM_SPEED:
-                durasi = Duration.millis(300);
-                break;
-        }
-        animation.getKeyFrames().setAll(
-                new KeyFrame(durasi,
-                        event));
-        return durasi;
-    }
+	public void saveCanvas(String a) {
+		String s = "" + a;
+		save.save(s);
+	}
 
-    public Group getRoot(){return root;}
-    
-    public void pause() {
-        animation.pause();
-//    	runningThread  = false;
-    }
+	Duration durasi = Duration.millis(100);
 
-    public void play() {
-    	runningState = true; 
-//      save.setMainFolder(fieldSnapshootName.getText());
-//    	save.setMainFolder("hasil akhir");
-        animation.play();
-//        thread.start();
-    }
+	public Duration changeSpeed() {
+		switch (type_animasi) {
+		case FAST_ANIMASI:
+			durasi = Duration.millis(20);
+			break;
+		case SLOW_ANIMASI:
+			durasi = Duration.millis(500);
+			break;
+		case MEDIUM_SPEED:
+			durasi = Duration.millis(300);
+			break;
+		}
+		animation.getKeyFrames().setAll(new KeyFrame(durasi, event));
+		return durasi;
+	}
 
-    private void initProperty() {
-        generateParticle();
-        if (usingBoundaryParticle){generateBoundary();}
-        if (drawPerimeter) {createPerimeter();}
-        if (drawConvexHull) {createConvexHull();}
-        if(draWConcaveHull){createConcavHull();}
-        redrawCircle();
-    }
+	public Group getRoot() {
+		return root;
+	}
 
-    public void restart() {
-    	runningState = false; 
-        animation.stop();
-        listFluid.clear();
-        allParticle.clear();
-        listBoundary.clear();
-        listCircle.clear();
-        listFluid.clear();
-        listOilParticle.clear();
-        listWaterParticle.clear();
-        gc.setFill(Color.WHITE);
-        gc.fillRect(0.0,0.0,xwidth,ywidth);
-        iterasiCount = 0;
-        animation.getKeyFrames().setAll(
-                new KeyFrame(changeSpeed(),
-                        event));
-        initProperty();
-        initNeighboor();
-        setKeteranganIterasi();
-    }
+	public void pause() {
+		animation.pause();
+		// runningThread = false;
+	}
 
-    public void initNeighboor() {
-        switch (typeInteraction) {
-            case singleGrid:
-            case doubleGrid:
-            case parallel:
-                this.initLinkedList();
-                break;
-            case tree:
-                initTree();
-                break;
-        }
-    }
-    
-    // when boundary particle not used
-    private void checkBoundary() {
-        double f = 0.8;
-        for (int i = 0; i < listFluid.size(); i++) {
-            Particle p = listFluid.get(i);
-            if (p.getX() > xMax - MainProperty.g_radius){
-                p.setX(xMax - MainProperty.g_radius);
-                double vx = -Math.abs(p.getVx()) * f;
-                p.setVx(vx);
-            }
-            if (p.getX() < xMin + MainProperty.g_radius){
-                p.setX(xMin + MainProperty.g_radius);
-                double vx = Math.abs(p.getVx()) * f;
-                p.setVx(vx);
-            }
-            if (p.getY() > yMax - MainProperty.g_radius){
-                p.setY(yMax - MainProperty.g_radius);
-                double vy = -Math.abs(p.getVy()) * f;
-                p.setVy(vy);
-            }
-            if (p.getY() < yMin + MainProperty.g_radius){
-                p.setY(yMin + MainProperty.g_radius);
-                double vy = Math.abs(p.getVy()) * f;
-                p.setVy(vy);
-            }
-        }
-    }
+	public void play() {
+		runningState = true;
+		// save.setMainFolder(fieldSnapshootName.getText());
+		// save.setMainFolder("hasil akhir");
+		animation.play();
+		// thread.start();
+	}
 
-    private void generateBoundary() {
-        // batas samping kanan
-        double y1 = yMax - (step / 2.0);
-        double y2 = yMax;
+	private void initProperty() {
+		generateParticle();
+		if (usingBoundaryParticle) {
+			generateBoundary();
+		}
+		if (drawPerimeter) {
+			createPerimeter();
+		}
+		if (drawConvexHull) {
+			createConvexHull();
+		}
+		if (draWConcaveHull) {
+			createConcavHull();
+		}
+		redrawCircle();
+	}
 
-        double x1 = xMin;
-        double x2 = xMin + (step / 2.0);
+	public void restart() {
+		runningState = false;
+		animation.stop();
+		listFluid.clear();
+		allParticle.clear();
+		listBoundary.clear();
+		listCircle.clear();
+		listFluid.clear();
+		listOilParticle.clear();
+		listWaterParticle.clear();
+		gc.setFill(Color.WHITE);
+		gc.fillRect(0.0, 0.0, xwidth, ywidth);
+		iterasiCount = 0;
+		animation.getKeyFrames().setAll(new KeyFrame(changeSpeed(), event));
+		initProperty();
+		initNeighboor();
+		setKeteranganIterasi();
+	}
 
-        while (y2 >= 0) {
-            SPHParticle p = new SPHParticle(x2,y2,
-            		0.0,0.0,0.0,0.0, 0.0,
-                    TypeParticle.Boundaries);
-            listBoundary.add(p);
-            allParticle.add(p);
+	public void initNeighboor() {
+		switch (typeInteraction) {
+		case singleGrid:
+		case doubleGrid:
+		case parallel:
+			this.initLinkedList();
+			break;
+		case tree:
+			initTree();
+			break;
+		}
+	}
 
-            y2 -= step;
-        }
+	// when boundary particle not used
+	private void checkBoundary() {
+		double f = 0.8;
+		for (int i = 0; i < listFluid.size(); i++) {
+			Particle p = listFluid.get(i);
+			if (p.getX() > xMax - MainProperty.g_radius) {
+				p.setX(xMax - MainProperty.g_radius);
+				double vx = -Math.abs(p.getVx()) * f;
+				p.setVx(vx);
+			}
+			if (p.getX() < xMin + MainProperty.g_radius) {
+				p.setX(xMin + MainProperty.g_radius);
+				double vx = Math.abs(p.getVx()) * f;
+				p.setVx(vx);
+			}
+			if (p.getY() > yMax - MainProperty.g_radius) {
+				p.setY(yMax - MainProperty.g_radius);
+				double vy = -Math.abs(p.getVy()) * f;
+				p.setVy(vy);
+			}
+			if (p.getY() < yMin + MainProperty.g_radius) {
+				p.setY(yMin + MainProperty.g_radius);
+				double vy = Math.abs(p.getVy()) * f;
+				p.setVy(vy);
+			}
+		}
+	}
 
-        while (y1 >= 0) {
-            SPHParticle p = new SPHParticle(x1,
-                    y1,0.0,0.0,0.0,0.0, 0.0,
-                    TypeParticle.Boundaries);
-            listBoundary.add(p);
-            allParticle.add(p);
-            y1 -= step;
-        }
+	private void generateBoundary() {
+		// batas samping kanan
+		double y1 = yMax - (step / 2.0);
+		double y2 = yMax;
 
-        // batas bawah
-        y2 = yMin + (step / 2.0);
-        x2 = xMin + (step / 2.0);
+		double x1 = xMin;
+		double x2 = xMin + (step / 2.0);
 
-        y1 = yMin;
-        x1 = xMin + step;
+		while (y2 >= 0) {
+			SPHParticle p = new SPHParticle(x2, y2, 0.0, 0.0, 0.0, 0.0, 0.0,
+					TypeParticle.Boundaries);
+			listBoundary.add(p);
+			allParticle.add(p);
 
-        while (x2 <= xMax) {
-            SPHParticle p = new SPHParticle(x2,
-                    y2,0.0,0.0,0.0,0.0,0.0,
-                    TypeParticle.Boundaries);
-            listBoundary.add(p);
-            allParticle.add(p);
-            x2 += step;
-        }
+			y2 -= step;
+		}
 
-        while (x1 <= (xMax)) {
-            SPHParticle p = new SPHParticle(x1,
-                    y1,0.0,0.0,0.0,0.0,0.0,
-                    TypeParticle.Boundaries);
-            listBoundary.add(p);
-            allParticle.add(p);
-            x1 += step;
-        }
+		while (y1 >= 0) {
+			SPHParticle p = new SPHParticle(x1, y1, 0.0, 0.0, 0.0, 0.0, 0.0,
+					TypeParticle.Boundaries);
+			listBoundary.add(p);
+			allParticle.add(p);
+			y1 -= step;
+		}
 
-        // batas sebelah kanan
-        x2 = xMax - step;
-        y2 = yMin;
+		// batas bawah
+		y2 = yMin + (step / 2.0);
+		x2 = xMin + (step / 2.0);
 
-        x1 = xMax - step / 2.0;
-        y1 = yMin + step / 2.0;
+		y1 = yMin;
+		x1 = xMin + step;
 
-        while (y2 <= yMax) {
-            SPHParticle p = new SPHParticle(x2,
-                    y2,0.0,0.0,0.0,0.0,0.0,
-                    TypeParticle.Boundaries);
-            listBoundary.add(p);
-            allParticle.add(p);
-            y2 += step;
-        }
+		while (x2 <= xMax) {
+			SPHParticle p = new SPHParticle(x2, y2, 0.0, 0.0, 0.0, 0.0, 0.0,
+					TypeParticle.Boundaries);
+			listBoundary.add(p);
+			allParticle.add(p);
+			x2 += step;
+		}
 
-        while (y1 <= yMax) {
-            SPHParticle p = new SPHParticle(x1,y1,0.0,
-                    0.0,0.0,0.0,0.0,
-                    TypeParticle.Boundaries);
-            listBoundary.add(p);
-            allParticle.add(p);
-            y1 += step;
-        }
-    }
+		while (x1 <= (xMax)) {
+			SPHParticle p = new SPHParticle(x1, y1, 0.0, 0.0, 0.0, 0.0, 0.0,
+					TypeParticle.Boundaries);
+			listBoundary.add(p);
+			allParticle.add(p);
+			x1 += step;
+		}
 
-    private void variableTimeStep() {
-        dtFrame = 0.005;
-        dtFrame = dtFrame * MainProperty.g_timeMult;
-        timeStep = dtFrame / g_SubStep;
-    }
+		// batas sebelah kanan
+		x2 = xMax - step;
+		y2 = yMin;
 
-    private void defaultStep() {
-        variableTimeStep();
-        for (int i = 0; i < listFluid.size(); i++) {
-            SPHParticle p = listFluid.get(i);
-            p.backUpVelocity(timeStep);
-        }
-        // gravity correction
-        for (int i = 0; i < listFluid.size(); i++) {
-            SPHParticle p = listFluid.get(i);
-            
-            p.gravityCorrection(timeStep);
-            p.initPressure();
-        }
-        moveParticle();
-        if (!usingBoundaryParticle) {
-            checkBoundary();
-        }
-        maxRange = smoothingLength * 2;
+		x1 = xMax - step / 2.0;
+		y1 = yMin + step / 2.0;
 
-        switch (typeInteraction) {
-            case tree:
-                initTree();
-                break;
-            case singleGrid:
-            case doubleGrid:
-            case parallel:
-                initLinkedList();
-                break;
-        }
+		while (y2 <= yMax) {
+			SPHParticle p = new SPHParticle(x2, y2, 0.0, 0.0, 0.0, 0.0, 0.0,
+					TypeParticle.Boundaries);
+			listBoundary.add(p);
+			allParticle.add(p);
+			y2 += step;
+		}
 
-		InteractionType<SPHParticle> firstInteraction =
-				new InteractionType<SPHParticle>() {
+		while (y1 <= yMax) {
+			SPHParticle p = new SPHParticle(x1, y1, 0.0, 0.0, 0.0, 0.0, 0.0,
+					TypeParticle.Boundaries);
+			listBoundary.add(p);
+			allParticle.add(p);
+			y1 += step;
+		}
+	}
+
+	private void variableTimeStep() {
+		dtFrame = 0.005;
+		dtFrame = dtFrame * MainProperty.g_timeMult;
+		timeStep = dtFrame / g_SubStep;
+	}
+
+	private void defaultStep() {
+		variableTimeStep();
+		for (int i = 0; i < listFluid.size(); i++) {
+			SPHParticle p = listFluid.get(i);
+			p.backUpVelocity(timeStep);
+		}
+		// gravity correction
+		for (int i = 0; i < listFluid.size(); i++) {
+			SPHParticle p = listFluid.get(i);
+
+			p.gravityCorrection(timeStep);
+			p.initPressure();
+		}
+		moveParticle();
+		if (!usingBoundaryParticle) {
+			checkBoundary();
+		}
+		maxRange = smoothingLength * 2;
+
+		switch (typeInteraction) {
+		case tree:
+			initTree();
+			break;
+		case singleGrid:
+		case doubleGrid:
+		case parallel:
+			initLinkedList();
+			break;
+		}
+
+		InteractionType<SPHParticle> firstInteraction = new InteractionType<SPHParticle>() {
 			@Override
-			public void calculate(SPHParticle p1,
-					SPHParticle p2) {
+			public void calculate(SPHParticle p1, SPHParticle p2) {
 				double dx = p1.getX() - p2.getX();
 				double dy = p1.getY() - p2.getY();
 				if (isCLoser(dx, dy)) {
-					double distance = Math.sqrt(dx * dx 
-							+ dy * dy);
+					double distance = Math.sqrt(dx * dx + dy * dy);
 					if (distance == 0) {
 						distance = 1.0;
 					}
@@ -1027,55 +1092,48 @@ public class Process {
 			}
 		};
 
-        switch (typeInteraction) {
-            case singleGrid:
-                singleInteraction(firstInteraction);
-                break;
-            case doubleGrid:
-                doubleInteraction(firstInteraction);
-                break;
-            case tree:
-                treeInteractions(firstInteraction);
-                break;
-            case parallel:
-                paralellInteraction(firstInteraction);
-                break;
-        }
+		switch (typeInteraction) {
+		case singleGrid:
+			singleInteraction(firstInteraction);
+			break;
+		case doubleGrid:
+			doubleInteraction(firstInteraction);
+			break;
+		case tree:
+			treeInteractions(firstInteraction);
+			break;
+		case parallel:
+			paralellInteraction(firstInteraction);
+			break;
+		}
 
-        // perhitungan tekanan
-        double g_avgDensity = 0.0;
-        for (int i = 0; i < allParticle.size(); i++) {
-            SPHParticle p = allParticle.get(i);
-            if (p.getSPHdens() > 0) {
-                g_avgDensity = g_avgDensity + 
-                		p.getSPHdens()
-                        / allParticle.size();
-            }
-            p.updatePressure();
-            if (p.type.equals(TypeParticle.Boundaries)) {
-                p.multiplyPressure(0.8,
-                        0.5);
-            }
-        }
+		// perhitungan tekanan
+		double g_avgDensity = 0.0;
+		for (int i = 0; i < allParticle.size(); i++) {
+			SPHParticle p = allParticle.get(i);
+			if (p.getSPHdens() > 0) {
+				g_avgDensity = g_avgDensity + p.getSPHdens()
+						/ allParticle.size();
+			}
+			p.updatePressure();
+			if (p.type.equals(TypeParticle.Boundaries)) {
+				p.multiplyPressure(0.8, 0.5);
+			}
+		}
 
 		// perhitungan viskositas
-		InteractionType<SPHParticle> secondInteraction =
-				new InteractionType<SPHParticle>() {
+		InteractionType<SPHParticle> secondInteraction = new InteractionType<SPHParticle>() {
 			@Override
-			public void calculate(SPHParticle p1,
-					SPHParticle p2) {
+			public void calculate(SPHParticle p1, SPHParticle p2) {
 
 				double dx = p1.getX() - p2.getX();
 				double dy = p1.getY() - p2.getY();
 
 				if (isCLoser(dx, dy)) {
-					double pressure = p1.getPressure() + 
-							p2.getPressure();
-					double pressN = p1.getPressureNear() 
-							+ p2.getPressureNear();
+					double pressure = p1.getPressure() + p2.getPressure();
+					double pressN = p1.getPressureNear() + p2.getPressureNear();
 
-					double distance = 
-							Math.sqrt(dx * dx + dy * dy);
+					double distance = Math.sqrt(dx * dx + dy * dy);
 					if (distance == 0) {
 						distance = 1.0;
 					}
@@ -1091,933 +1149,713 @@ public class Process {
 					p1.setKernel(q);
 					p2.setKernel(q);
 
-					double fDisp = (pressure * 
-							qpangkatdua + pressN
+					double fDisp = (pressure * qpangkatdua + pressN
 							* qpangkattiga)
 							* timeStep * timeStep;
 
-					double a2bNx = (p2.getX() -
-							p1.getX()) / distance;
-					double a2bNy = (p2.getY() - 
-							p1.getY()) / distance;
+					double a2bNx = (p2.getX() - p1.getX()) / distance;
+					double a2bNy = (p2.getY() - p1.getY()) / distance;
 
 					double vdispX = a2bNx * (-fDisp);
 					double vdispY = a2bNy * (-fDisp);
-					
+
 					double dispX = vdispX
-//							/ 
-//							(p1.getInversMassa() +
-//									p2.getInversMassa())	
-									;
+					// /
+					// (p1.getInversMassa() +
+					// p2.getInversMassa())
+					;
 					double dispY = vdispY
-//							/ 
-//							(p1.getInversMassa() +
-//									p2.getInversMassa())
-									;
+					// /
+					// (p1.getInversMassa() +
+					// p2.getInversMassa())
+					;
 
 					// jangan koreksi boundary partikel
-					if (p1.type == TypeParticle.Water){
-						p1.increasePosition(dispX, 
-								dispY);
+					if (p1.type == TypeParticle.Water) {
+						p1.increasePosition(dispX, dispY);
 					}
 					if (p2.type == TypeParticle.Water) {
-						p2.decreasePosition(dispX,
-								dispY);
+						p2.decreasePosition(dispX, dispY);
 					}
 					if (p1.type == TypeParticle.Second) {
-						p1.increasePosition(dispX,
-								dispY);
+						p1.increasePosition(dispX, dispY);
 					}
 					if (p2.type == TypeParticle.Second) {
-						p2.decreasePosition(dispX,
-								dispY);
+						p2.decreasePosition(dispX, dispY);
 					}
 
 					// koreksi double counting
-					if (typeInteraction == 
-							TypeInteraction.singleGrid) {
+					if (typeInteraction == TypeInteraction.singleGrid) {
 						dispX = -dispX;
 						dispY = -dispY;
-						if (p1.type == 
-								TypeParticle.Water){
-							p1.decreasePosition(dispX,
-									dispY);
+						if (p1.type == TypeParticle.Water) {
+							p1.decreasePosition(dispX, dispY);
 						}
-						if (p2.type ==
-								TypeParticle.Water) {
-							p2.increasePosition(dispX,
-									dispY);
+						if (p2.type == TypeParticle.Water) {
+							p2.increasePosition(dispX, dispY);
 						}
-						if (p1.type ==
-								TypeParticle.Second) {
-							p1.decreasePosition(dispX, 
-									dispY);
+						if (p1.type == TypeParticle.Second) {
+							p1.decreasePosition(dispX, dispY);
 						}
-						if (p2.type == 
-								TypeParticle.Second) {
-							p2.increasePosition(dispX,
-									dispY);
+						if (p2.type == TypeParticle.Second) {
+							p2.increasePosition(dispX, dispY);
 						}
 					}
 				}
 			}
 		};
 
-        switch (typeInteraction) {
-            case singleGrid:
-                singleInteraction(secondInteraction);
-                break;
-            case doubleGrid:
-                doubleInteraction(secondInteraction);
-                break;
-            case tree:
-                treeInteractions(secondInteraction);
-                break;
-            case parallel:
-                paralellInteraction(secondInteraction);
-        }
-    }
-  
-    public void changeListToArray() {
-        particleSPH = new 
-        		SPhysicsParticle[listSPHysicsParticle
-                .size()];
-        for (int i = 0; i < listSPHysicsParticle.size();
-                i++) {
-            particleSPH[i] = listSPHysicsParticle.
-                    get(i);
-        }
-    }
+		switch (typeInteraction) {
+		case singleGrid:
+			singleInteraction(secondInteraction);
+			break;
+		case doubleGrid:
+			doubleInteraction(secondInteraction);
+			break;
+		case tree:
+			treeInteractions(secondInteraction);
+			break;
+		case parallel:
+			paralellInteraction(secondInteraction);
+		}
+	}
 
-    public boolean isCLoser(double dx,
-            double dy) {
-        if (dx > maxRange || dx < -maxRange) {
-            return false;
-        }
-        if (dy > maxRange || dy < -maxRange) {
-            return false;
-        }
-        double d2 = dx * dx + dy * dy;
-        double m2 = maxRange * maxRange;
-        return d2 < m2;
-    }
+	public void changeListToArray() {
+		particleSPH = new SPhysicsParticle[listSPHysicsParticle.size()];
+		for (int i = 0; i < listSPHysicsParticle.size(); i++) {
+			particleSPH[i] = listSPHysicsParticle.get(i);
+		}
+	}
 
-    public double g_velDamping = 0.2;
+	public boolean isCLoser(double dx, double dy) {
+		if (dx > maxRange || dx < -maxRange) {
+			return false;
+		}
+		if (dy > maxRange || dy < -maxRange) {
+			return false;
+		}
+		double d2 = dx * dx + dy * dy;
+		double m2 = maxRange * maxRange;
+		return d2 < m2;
+	}
 
-    private void moveParticle() {
-        for (int i = 0; i < listFluid.size(); i++) {
-            SPHParticle p = listFluid.get(i);
-            double dmp = 0.0;
-            if (g_velDamping > 0) {
-                dmp = g_velDamping * timeStep;
-                if (dmp > 1) {
-                    dmp = 0.18;
-                }
-                p.applyDampingToVelocity(dmp);
-            }
-            p.absmin();
-            p.updatePosition(timeStep);
-        }
-    }
+	public double g_velDamping = 0.2;
 
-    // digunakan untuk menambah efek partikel yang 
-    // lagi jatuh 
-    public void addFallingParticle(){
-//    	double x = yMaxLinkedList; 
-    	
-    }
-    
-    private void redrawCircle() {
-        gc.setFill(Color.WHITE);
-        gc.fillRect(0,0, canvasWidth, canvasHeight);
-        gc.setStroke(Color.MAGENTA); 
-        gc.strokeRect(0, 0, canvasWidth, canvasHeight);
-//        gc.setStroke(Color.MEDIUMSPRINGGREEN);
-        
-        // untuk canvas plot... 
-        gcCanvasPlot.setFill(Color.WHITE);
-        gcCanvasPlot.fillRect(0, 0 , canvasWidth , canvasHeight); 
-        gcCanvasPlot.setStroke(Color.MAGENTA); 
-        gcCanvasPlot.strokeRect(0, 0, canvasWidth, canvasHeight); 
-        
-        
-        for (int i = 0; i < allParticle.size();
-                i++) {
-            SPHParticle p = allParticle.get(i);
-            double scala = MainProperty.g_radius
-                    * drawingFactorX;
-            double x = p.getX() * drawingFactorX;
-            double y = p.getY() * drawingFactorY;
-            y = canvasHeight  - y; // inverting axis
-//            y = y - 200; 
-            Color color = null;
-            switch (p.type) {
-                case Water:
-                    color = Color.BLUE;
-                    break;
-                case Boundaries:
-                    color = Color.RED;
-                    break;
-                case Second:
-                	color = Color.MEDIUMSPRINGGREEN;
-                    break;
-            }
-            gc.setFill(color);
-            gc.fillOval(x,y,scala,scala);
-        }
+	private void moveParticle() {
+		for (int i = 0; i < listFluid.size(); i++) {
+			SPHParticle p = listFluid.get(i);
+			double dmp = 0.0;
+			if (g_velDamping > 0) {
+				dmp = g_velDamping * timeStep;
+				if (dmp > 1) {
+					dmp = 0.18;
+				}
+				p.applyDampingToVelocity(dmp);
+			}
+			p.absmin();
+			p.updatePosition(timeStep);
+		}
+	}
 
-        if (drawPerimeter) {
-            if (perimeterState.
-            		equals(perimeterWater)) {
-//            			drawPerimeter(gc,Color.GREEN,
-//                        xPerimeterWater,
-//                        yPerimeterWater);
-            			drawPerimeter(gcCanvasPlot,Color.GREEN,
-                                xPerimeterWater,
-                                yPerimeterWater);
-            } else if (perimeterState.
-            		equals(perimeterOil)){
-//            			drawPerimeter(gc,
-//                        Color.MEDIUMORCHID,
-//                        xPerimeterOil,
-//                        yPerimeterOil);
-            			drawPerimeter(gcCanvasPlot,
-                                Color.MEDIUMORCHID,
-                                xPerimeterOil,
-                                yPerimeterOil);
-            } else if (perimeterState.
-                    equals(perimeterBoth)) {
-//            			drawPerimeter(gc,
-//                        Color.GREEN,
-//                        xPerimeterWater,
-//                        yPerimeterWater);
-//            			drawPerimeter(gc,
-//                        Color.MEDIUMORCHID,
-//                        xPerimeterOil,
-//                        yPerimeterOil);
-            			drawPerimeter(gcCanvasPlot,
-                                Color.GREEN,
-                                xPerimeterWater,
-                                yPerimeterWater);
-                    			drawPerimeter(gcCanvasPlot,
-                                Color.MEDIUMORCHID,
-                                xPerimeterOil,
-                                yPerimeterOil);
-            } else if (perimeterStates.
-                    equals(perimeterUnion)) {
-            }
-        }
-        if (drawConvexHull) {
-            if (convexHullState.
-                    equals(convexHullOil)) {
-//                drawConvexHull(gc,
-//                        Color.MAROON,
-//                        oilConvexHull);
-                drawConvexHull(gcCanvasPlot,
-                        Color.MAROON,
-                        oilConvexHull);
-            } else if (convexHullState.
-                    equals(convexHullWater)) {
-//                drawConvexHull(gc,
-//                        Color.MAGENTA,
-//                        waterConvexHUll);
-                drawConvexHull(gcCanvasPlot,
-                        Color.MAGENTA,
-                        waterConvexHUll);
-            } else if (convexHullState
-                    .equals(convexHullBoth)) {
-//                drawConvexHull(gc,
-//                        Color.MAROON,
-//                        oilConvexHull);
-//                drawConvexHull(gc,
-//                        Color.MAGENTA,
-//                        waterConvexHUll);
-                drawConvexHull(gcCanvasPlot,
-                        Color.MAROON,
-                        oilConvexHull);
-                drawConvexHull(gcCanvasPlot,
-                        Color.MAGENTA,
-                        waterConvexHUll);
-            }
-        }
-        if(draWConcaveHull){
-//        	drawConcavHull(gc, Color.GREEN);
-        	drawConcavHull(gcCanvasPlot, Color.GREEN);
-        }
-    }
+	// digunakan untuk menambah efek partikel yang
+	// lagi jatuh
+	public void addFallingParticle() {
+		// double x = yMaxLinkedList;
 
-    public void drawPerimeter(GraphicsContext gc,
-            Color color,
-            ArrayList<Double> listX,
-            ArrayList<Double> listY) {
-        gc.setStroke(color);
-        gc.beginPath();
-        gc.setLineWidth(1);
-        double x = listX.get(0) * drawingFactorX;
-        double y = listY.get(0) * drawingFactorY;
-        y = canvasHeight - y;
-        gc.moveTo(x,  y);
-        gc.stroke();
-        for (int i = 0; i < listX.size(); i++) {
-            x = listX.get(i) * drawingFactorX;
-            y = listY.get(i) * drawingFactorY;
-            y = canvasHeight - y;
-            gc.lineTo(x,
-                    y);
-            gc.stroke();
-        }
-    }
+	}
 
-    // jadi dalam penggambaran convex hull ini, tidak dimasukkan partikel yang 
-    // terakhir 
-    public <T extends Point> void drawConvexHull(GraphicsContext gc,
-                    Color color, ArrayList<T> list) {
-        gc.setStroke(color);
-        gc.beginPath();
-        gc.setLineWidth(1);
-        int initIndex = 0 ; 
-        double x = list.get(initIndex).getX() * drawingFactorX;
-        double y = list.get(initIndex).getY() * drawingFactorY;
-        y = canvasHeight  - y;
-        gc.moveTo(x, y);
-        gc.stroke();
-        for (int i = initIndex ; i < (int) (list.size()); i++) {
-            x = list.get(i).getX() * drawingFactorX;
-            y = list.get(i).getY() * drawingFactorY;
-            y = canvasHeight - y;
-            gc.lineTo(x,y);
-            gc.stroke();
-        }
-        x = list.get(0).getX() * drawingFactorX;
-        y = list.get(0).getY() * drawingFactorY;
-        y = canvasHeight - y;
-        gc.lineTo(x, y);
-        gc.stroke();
-    }
+	private void redrawCircle() {
+		gc.setFill(Color.WHITE);
+		gc.fillRect(0, 0, canvasWidth, canvasHeight);
+		gc.setStroke(Color.MAGENTA);
+		gc.strokeRect(0, 0, canvasWidth, canvasHeight);
+		// gc.setStroke(Color.MEDIUMSPRINGGREEN);
+		// untuk canvas plot...
+		gcCanvasPlot.setFill(Color.WHITE);
+		gcCanvasPlot.fillRect(0, 0, canvasWidth, canvasHeight);
+		gcCanvasPlot.setStroke(Color.MAGENTA);
+		gcCanvasPlot.strokeRect(0, 0, canvasWidth, canvasHeight);
+		for (int i = 0; i < allParticle.size(); i++) {
+			SPHParticle p = allParticle.get(i);
+			double scala = MainProperty.g_radius * drawingFactorX;
+			double x = p.getX() * drawingFactorX;
+			double y = p.getY() * drawingFactorY;
+			y = canvasHeight - y; // inverting axis
+			// y = y - 200;
+			Color color = null;
+			switch (p.type) {
+			case Water:
+				color = Color.BLUE;
+				break;
+			case Boundaries:
+				color = Color.RED;
+				break;
+			case Second:
+				color = Color.MEDIUMSPRINGGREEN;
+				break;
+			}
+			gc.setFill(color);
+			gc.fillOval(x, y, scala, scala);
+		}
+		if (drawPerimeter) {
+			if (perimeterState.equals(perimeterWater)) {
+				drawPerimeter(gcCanvasPlot, Color.GREEN, xPerimeterWater,yPerimeterWater);
+			} else if (perimeterState.equals(perimeterOil)) {
+				drawPerimeter(gcCanvasPlot, Color.MEDIUMORCHID, xPerimeterOil, yPerimeterOil);
+			} else if (perimeterState.equals(perimeterBoth)) {
+				drawPerimeter(gcCanvasPlot, Color.GREEN, xPerimeterWater,yPerimeterWater);
+				drawPerimeter(gcCanvasPlot, Color.MEDIUMORCHID, xPerimeterOil,yPerimeterOil);
+			} else if (perimeterState.equals(perimeterUnion)) {
+				drawPerimeter(gcCanvasPlot, Color.GREEN, xPerimeterUnion, yPerimeterUnion);
+				drawPerimeter(gcCanvasPlot, Color.MEDIUMORCHID, xPerimeterOil,yPerimeterOil);
+//				System.out.println("pertama..."); 
+			}
+		}
+		if (drawConvexHull) {
+			if (convexHullState.equals(convexHullOil)) {
+				drawConvexHull(gcCanvasPlot, Color.MAROON, oilConvexHull);
+			} else if (convexHullState.equals(convexHullWater)) {
+				drawConvexHull(gcCanvasPlot, Color.MAGENTA, waterConvexHUll);
+			} else if (convexHullState.equals(convexHullBoth)) {
+				drawConvexHull(gcCanvasPlot, Color.MAROON, oilConvexHull);
+				drawConvexHull(gcCanvasPlot, Color.MAGENTA, unionConvexHull);
+			} else if (convexHullState.equals(convexHullUnion)) {
+				drawConvexHull(gcCanvasPlot, Color.SANDYBROWN, unionConvexHull);
+			}
+		}
+		if (draWConcaveHull) {
+			drawConcavHull(gcCanvasPlot, Color.GREEN);
+		}
+	}
 
-    public void removeOverlap(ArrayList<SPHParticle> list) {
-        for (int i = 0; i < list.size(); i++) {
-            SPHParticle p1 = list.get(i);
-            for (int j = list.size() - 1; j > i; j--) {
-                SPHParticle p2 = list.get(j);
-                if (isOverlap(p1,
-                        p2)) {
-                    list.remove(j);
-                }
-            }
-        }
+	public void drawPerimeter(GraphicsContext gc, Color color,
+			ArrayList<Double> listX, ArrayList<Double> listY) {
+		gc.setStroke(color);
+		gc.beginPath();
+		gc.setLineWidth(1);
+		double x = listX.get(0) * drawingFactorX;
+		double y = listY.get(0) * drawingFactorY;
+		y = canvasHeight - y;
+		gc.moveTo(x, y);
+		gc.stroke();
+		for (int i = 0; i < listX.size(); i++) {
+			x = listX.get(i) * drawingFactorX;
+			y = listY.get(i) * drawingFactorY;
+			y = canvasHeight - y;
+			gc.lineTo(x, y);
+			gc.stroke();
+		}
+	}
 
-        for (int i = list.size() - 1; i >= 0; i--) {
-            SPHParticle p1 = list.get(i);
-            if (p1.getX() > xMax - MainProperty.g_radius
-                    || p1.getX()
-                    < xMin + MainProperty.g_radius
-                    || p1.getY() > yMax - 
-                    MainProperty.g_radius
-                    || p1.getY()
-                    < yMin + MainProperty.g_radius) {
-                list.remove(i);
-            }
-        }
-    }
+	// jadi dalam penggambaran convex hull ini, tidak dimasukkan partikel yang
+	// terakhir
+	public <T extends Point> void drawConvexHull(GraphicsContext gc,
+			Color color, ArrayList<T> list) {
+		gc.setStroke(color);
+		gc.beginPath();
+		gc.setLineWidth(1);
+		// int initIndex = (int) (list.size()/2.) ;
+		int initIndex = 0;
+		int endIndex = (int) (list.size());
+		double x = list.get(initIndex).getX() * drawingFactorX;
+		double y = list.get(initIndex).getY() * drawingFactorY;
+		y = canvasHeight - y;
+		gc.moveTo(x, y);
+		gc.stroke();
+		for (int i = initIndex; i < endIndex; i++) {
+			x = list.get(i).getX() * drawingFactorX;
+			y = list.get(i).getY() * drawingFactorY;
+			y = canvasHeight - y;
+			gc.lineTo(x, y);
+			gc.stroke();
+		}
+		x = list.get(0).getX() * drawingFactorX;
+		y = list.get(0).getY() * drawingFactorY;
+		y = canvasHeight - y;
+		gc.lineTo(x, y);
+		gc.stroke();
+	}
 
-    private boolean isOverlap(SPHParticle p1,
-            SPHParticle p2) {
-        double deltax = p1.getX() - p2.getX();
-        double deltay = p1.getY() - p2.getY();
-        if (deltax * deltax + deltay * deltay
-                < 4 * MainProperty.g_radius
-                * MainProperty.g_radius) {
-            return true;
-        }
-        return false;
-    }
+	public void removeOverlap(ArrayList<SPHParticle> list) {
+		for (int i = 0; i < list.size(); i++) {
+			SPHParticle p1 = list.get(i);
+			for (int j = list.size() - 1; j > i; j--) {
+				SPHParticle p2 = list.get(j);
+				if (isOverlap(p1, p2)) {
+					list.remove(j);
+				}
+			}
+		}
 
-    boolean upper = true;
+		for (int i = list.size() - 1; i >= 0; i--) {
+			SPHParticle p1 = list.get(i);
+			if (p1.getX() > xMax - MainProperty.g_radius
+					|| p1.getX() < xMin + MainProperty.g_radius
+					|| p1.getY() > yMax - MainProperty.g_radius
+					|| p1.getY() < yMin + MainProperty.g_radius) {
+				list.remove(i);
+			}
+		}
+	}
 
-    private void generateParticle() {
-        double x1 = xDomainOfFluida;
-        double y1 = yDomainOfFluida;
-        double xcenter = (xDomainOfFluida - xMin) * 0.5;
-        double ycenter = (yDomainOfFluida - yMin) * 0.5;
-        double radius_ = 1.3 * smoothingLength;
-        Circle_ circle = new Circle_(xcenter,
-                ycenter,
-                radius_);
-        if (!usingStaggeredGrid) {
-            while (y1 >= yMin) {
-                while (x1 >= xMin) {
-                    if (isInCircle(new Point_(x1,
-                            y1),
-                            circle)) {
-                        SPHParticle p = new 
-                        		SPHParticle(x1,
-                                y1,0D,0D,
-                                TypeFluid.WATER,
-                                TypeParticle.Second);
-                        listFluid.add(p);
-                        allParticle.add(p);
-                        listOilParticle.add(p);
-                    } else {
-                        SPHParticle p = 
-                        		new SPHParticle(x1,
-                                y1,0D, 0D,
-                                fluidaKedua,
-                                TypeParticle.Water);
-                        listFluid.add(p);
-                        allParticle.add(p);
-                    }
-                    x1 -= step;
-                }
-                x1 = xDomainOfFluida;
-                y1 -= step;
-            }
-        } else {  //using staggered grid
-            while (x1 > xMin) {
-                while (y1 > yMin) {
-                    if (!isInCircle(new Point_(x1,
-                            y1),
-                            circle)) {
-                        SPHParticle p =
-                        		new SPHParticle(x1,
-                                y1,0D,0D,
-                                TypeFluid.WATER,
-                                TypeParticle.Water);
-                        listFluid.add(p);
-                        allParticle.add(p);
-                        listWaterParticle.add(p);
-                    } else {
-                        SPHParticle p = new 
-                        		SPHParticle(x1,
-                                y1,0D,0D,
-                                fluidaKedua,
-                                TypeParticle.Second);
-                        listFluid.add(p);
-                        allParticle.add(p);
-                        listOilParticle.add(p);
-                    }
-                    y1 -= step;
-                }
-                if (upper) {
-                    y1 = yDomainOfFluida + step / 2.0;
-                    upper = false;
-                } else {
-                    y1 = yDomainOfFluida;
-                    upper = true;
-                }
-                x1 -= step / 2.0;
-            }
-        }
-    }
+	private boolean isOverlap(SPHParticle p1, SPHParticle p2) {
+		double deltax = p1.getX() - p2.getX();
+		double deltay = p1.getY() - p2.getY();
+		if (deltax * deltax + deltay * deltay < 4 * MainProperty.g_radius
+				* MainProperty.g_radius) {
+			return true;
+		}
+		return false;
+	}
 
-    private boolean isInCircle(Point_ p,
-            Circle_ c) {
-        double deltax = p.getX() - c.getX();
-        double deltay = p.getY() - c.getY();
-        if (deltax * deltax + deltay * deltay 
-        		<= c.getRadius()) {
-            return true;
-        }
-        return false;
-    }
+	boolean upper = true;
 
-    private class Point_ {
-        double x, y;
-        public Point_(double x,double y) {
-        	this.x = x;
-            this.y = y;}
+	private void generateParticle() {
+		double x1 = xDomainOfFluida;
+		double y1 = yDomainOfFluida;
+		double xcenter = (xDomainOfFluida - xMin) * 0.5;
+		double ycenter = (yDomainOfFluida - yMin) * 0.5;
+		double radius_ = 1.3 * smoothingLength;
+		Circle_ circle = new Circle_(xcenter, ycenter, radius_);
+		if (!usingStaggeredGrid) {
+			while (y1 >= yMin) {
+				while (x1 >= xMin) {
+					if (isInCircle(new Point_(x1, y1), circle)) {
+						SPHParticle p = new SPHParticle(x1, y1, 0D, 0D,
+								TypeFluid.WATER, TypeParticle.Second);
+						listFluid.add(p);
+						allParticle.add(p);
+						listOilParticle.add(p);
+					} else {
+						SPHParticle p = new SPHParticle(x1, y1, 0D, 0D,
+								fluidaKedua, TypeParticle.Water);
+						listFluid.add(p);
+						allParticle.add(p);
+					}
+					x1 -= step;
+				}
+				x1 = xDomainOfFluida;
+				y1 -= step;
+			}
+		} else { // using staggered grid
+			while (x1 > xMin) {
+				while (y1 > yMin) {
+					if (!isInCircle(new Point_(x1, y1), circle)) {
+						SPHParticle p = new SPHParticle(x1, y1, 0D, 0D,
+								TypeFluid.WATER, TypeParticle.Water);
+						listFluid.add(p);
+						allParticle.add(p);
+						listWaterParticle.add(p);
+					} else {
+						SPHParticle p = new SPHParticle(x1, y1, 0D, 0D,
+								fluidaKedua, TypeParticle.Second);
+						listFluid.add(p);
+						allParticle.add(p);
+						listOilParticle.add(p);
+					}
+					y1 -= step;
+				}
+				if (upper) {
+					y1 = yDomainOfFluida + step / 2.0;
+					upper = false;
+				} else {
+					y1 = yDomainOfFluida;
+					upper = true;
+				}
+				x1 -= step / 2.0;
+			}
+		}
+	}
 
-        public double getX() {return x;}
-        public double getY() {return y;}
-    }
+	private boolean isInCircle(Point_ p, Circle_ c) {
+		double deltax = p.getX() - c.getX();
+		double deltay = p.getY() - c.getY();
+		if (deltax * deltax + deltay * deltay <= c.getRadius()) {
+			return true;
+		}
+		return false;
+	}
 
-    private class Circle_ {
+	private class Point_ {
+		double x, y;
 
-        double x;
-        double y;
-        double radius;
+		public Point_(double x, double y) {
+			this.x = x;
+			this.y = y;
+		}
 
-        public Circle_(double x,
-                double y,
-                double radius) {
-            this.x = x;
-            this.y = y;
-            this.radius = radius;
-        }
+		public double getX() {
+			return x;
+		}
 
-        public double getX() {
-            return x;
-        }
+		public double getY() {
+			return y;
+		}
+	}
 
-        public double getY() {
-            return y;
-        }
+	private class Circle_ {
 
-        public double getRadius() {
-            return radius;
-        }
-    }
+		double x;
+		double y;
+		double radius;
 
-    public void paralellInteraction(
-            InteractionType<SPHParticle> interaction) {
-        paralelProcess = new ParallelInteraction(this,
-                interaction,
-                0,
-                allParticle.size());
-        pool.invoke(paralelProcess);
-    }
+		public Circle_(double x, double y, double radius) {
+			this.x = x;
+			this.y = y;
+			this.radius = radius;
+		}
 
-    DoubleInteraction doubleInteraksi;
+		public double getX() {
+			return x;
+		}
 
-    public int getGridX() {
-        return gridX;
-    }
+		public double getY() {
+			return y;
+		}
 
-    public int getGridY() {
-        return gridY;
-    }
+		public double getRadius() {
+			return radius;
+		}
+	}
 
-    public ArrayList<Integer>[][] getHash() {
-        return hash;
-    }
+	public void paralellInteraction(InteractionType<SPHParticle> interaction) {
+		paralelProcess = new ParallelInteraction(this, interaction, 0,
+				allParticle.size());
+		pool.invoke(paralelProcess);
+	}
 
-    public <T extends Particle> ArrayList<T>
-            getAllParticle() {
-        if (marchingtype == MarchingType.SPHysics) {
-            return (ArrayList<T>) allsphysicsParticle;
-        } else {
-            return (ArrayList<T>) allParticle;
-        }
-    }
+	DoubleInteraction doubleInteraksi;
 
-    public void treeInteractions(
-            InteractionType<SPHParticle> interaction) {
-        for (int i = 0; i < allParticle.size(); i++) {
-            SPHParticle p1 = allParticle.get(i);
-            treeInteraction(p1,
-                    noderoot,
-                    interaction);
-        }
-    }
+	public int getGridX() {
+		return gridX;
+	}
 
-    private void treeInteraction(
-    		SPHParticle particle,
-            Node current_node,
-            InteractionType<SPHParticle> interaction) {
-        if (current_node.getNumberParticle() > 1) {
-            if (current_node.getBottomLeftNode()
-                    != null) {
-                Node node = current_node.
-                        getBottomLeftNode();
-                if (isNodeAndParticleOverlap(node,
-                        particle)) {
-                    treeInteraction(particle,
-                            node,
-                            interaction);
-                }
-            }
-            if (current_node.getBottomRightNode()
-                    != null) {
-                Node node = current_node.
-                        getBottomRightNode();
-                if (isNodeAndParticleOverlap(node,
-                        particle)) {
-                    treeInteraction(particle,
-                            node,
-                            interaction);
-                }
-            }
-            if (current_node.getTopLeftNode() != null) {
-                Node node = current_node.getTopLeftNode();
-                if (isNodeAndParticleOverlap(node,
-                        particle)) {
-                    treeInteraction(particle,
-                            node,
-                            interaction);
-                }
-            }
-            if (current_node.getTopRightNode() != null) {
-                Node node = current_node.
-                        getTopRightNode();
-                if (isNodeAndParticleOverlap(node,
-                        particle)) {
-                    treeInteraction(particle,
-                            node,
-                            interaction);
-                }
-            }
-        } else if (current_node.
-                getNumberParticle() == 1) {
-            if (current_node.getParticle() != particle) {
-            	if(!current_node.isLeaf()){
-            		 interaction.calculate(current_node.
-                             getParticle(),
-                             particle);
-            	}else{
-            		ArrayList<SPHParticle>  list = 
-            				current_node.getParticleInNode();
-            		for(SPHParticle p : list){
-            			interaction.calculate(p, particle);
-            		}
-            	}
-            }
-        }
-    }
+	public int getGridY() {
+		return gridY;
+	}
 
-    public boolean isNodeAndParticleOverlap(Node node,
-            SPHParticle particle) {
-        if (particle.getLeftSearchBox() < node.
-        		getRightMargin()
-                && particle.getRightSearchBox() > node.
-                getLeftMargin()
-                && particle.getBottomSearchBox()
-                < node.getTopMargin()
-                && particle.getTopSearchBox()
-                > node.getBottomMargin()) {
-            return true;
-        }
-        return false;
-    }
+	public ArrayList<Integer>[][] getHash() {
+		return hash;
+	}
 
-    Node noderoot;
+	public <T extends Particle> ArrayList<T> getAllParticle() {
+		if (marchingtype == MarchingType.SPHysics) {
+			return (ArrayList<T>) allsphysicsParticle;
+		} else {
+			return (ArrayList<T>) allParticle;
+		}
+	}
 
-    public void initTree() {
-        System.out.println("Lagi init tree... !!!");
-        noderoot = new Node(0.0,
-                yMax,
-                xMax,
-                0.0, 0 );
-        for (int i = 0; i < allParticle.size(); i++) {
-            SPHParticle p = allParticle.get(i);
-            noderoot.insertParticle(p);
-            p.setSearchBoxLength(smoothingLength * 2.5);
-        }
-    }
+	public void treeInteractions(InteractionType<SPHParticle> interaction) {
+		for (int i = 0; i < allParticle.size(); i++) {
+			SPHParticle p1 = allParticle.get(i);
+			treeInteraction(p1, noderoot, interaction);
+		}
+	}
 
-    public void singleInteraction(
-            InteractionType<SPHParticle> interaction) {
-        for (int ny = 0; ny < gridY; ny++) {
-            for (int nx = 0; nx < gridX; nx++) {
-                if (hash[nx][ny].size() > 0) {
-                    for (int a = 0; a < hash[nx][ny].
-                    		size(); a++) {
-                        int aa = hash[nx][ny].
-                        		get(a).intValue();
-                        // calculate influence
-                        // on the same cell
-                        for (int b = 0; b < a; b++) {
-                            int bb = hash[nx][ny].get(b).
-                                    intValue();
-                            // int p2 = bb;
-                            interaction.
-                            calculate(allParticle.get(aa),
-                                    allParticle.get(bb));
-                        }
-                        // calculate influence
-                        // on east cell
-                        if (nx + 1 < gridX && 
-                        		hash[nx + 1][ny].
-                                size()
-                                > 0) {
-                            for (int b = 0; b < 
-                        		hash[nx + 1][ny].size();
-                                    b++) {
-                                int bb = hash[nx + 1]
-                                		[ny].get(b)
-                                        .intValue();
-                                interaction.
-                                calculate(allParticle.
-                                        get(aa),
-                                    allParticle.get(bb));
-                            }
-                        }
-                        // calculate influence on
-                        // north-east cell
-                        if (nx + 1 < gridX && ny + 
-                        		1 < gridY
-                                && hash[nx + 1][ny + 1]
-                                		.size() > 0) {
-                            for (int b = 0; b < 
-                            		hash[nx + 1][ny+ 1].
-                                    size();b++) {
-                                int bb = hash[nx + 1]
-                                		[ny + 1].get(b)
-                                        .intValue();
-                                interaction.
-                                calculate(allParticle.
-                                        get(aa),
-                                        allParticle.
-                                        get(bb));
-                            }
-                        }
-                        // calculate influence 
-                        // on north cell
-                        if (ny + 1 < gridY && 
-                        		hash[nx][ny + 1].
-                                size() > 0) {
-                            for (int b = 0; b < 
-                            		hash[nx][ny + 1].
-                                    size();
-                                    b++) {
-                                int bb = hash[nx]
-                                		[ny + 1].get(b).
-                                        intValue();
-                                interaction.calculate
-                                (allParticle.
-                                        get(aa),
-                                        allParticle.
-                                        get(bb));
-                            }
-                        }
-                        // calculate influence on 
-                        // north-west cell
-                        if (nx - 1 >= 0 && ny + 1 
-                        		< gridY
-                                && hash[nx - 1][ny + 1]
-                                		.size() > 0) {
-                            for (int b = 0; b < 
-                            		hash[nx - 1][ny
-                                    + 1].
-                                    size();
-                                    b++) {
-                                int bb = hash[nx - 1]
-                                		[ny + 1].get(
-                                        b)
-                                        .intValue();
-                                interaction.calculate(
-                                		allParticle.
-                                        get(aa),
-                                        allParticle.
-                                        get(bb));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+	private void treeInteraction(SPHParticle particle, Node current_node,
+			InteractionType<SPHParticle> interaction) {
+		if (current_node.getNumberParticle() > 1) {
+			if (current_node.getBottomLeftNode() != null) {
+				Node node = current_node.getBottomLeftNode();
+				if (isNodeAndParticleOverlap(node, particle)) {
+					treeInteraction(particle, node, interaction);
+				}
+			}
+			if (current_node.getBottomRightNode() != null) {
+				Node node = current_node.getBottomRightNode();
+				if (isNodeAndParticleOverlap(node, particle)) {
+					treeInteraction(particle, node, interaction);
+				}
+			}
+			if (current_node.getTopLeftNode() != null) {
+				Node node = current_node.getTopLeftNode();
+				if (isNodeAndParticleOverlap(node, particle)) {
+					treeInteraction(particle, node, interaction);
+				}
+			}
+			if (current_node.getTopRightNode() != null) {
+				Node node = current_node.getTopRightNode();
+				if (isNodeAndParticleOverlap(node, particle)) {
+					treeInteraction(particle, node, interaction);
+				}
+			}
+		} else if (current_node.getNumberParticle() == 1) {
+			if (current_node.getParticle() != particle) {
+				if (!current_node.isLeaf()) {
+					interaction.calculate(current_node.getParticle(), particle);
+				} else {
+					ArrayList<SPHParticle> list = current_node
+							.getParticleInNode();
+					for (SPHParticle p : list) {
+						interaction.calculate(p, particle);
+					}
+				}
+			}
+		}
+	}
 
-    final void initLinkedList() {
+	public boolean isNodeAndParticleOverlap(Node node, SPHParticle particle) {
+		if (particle.getLeftSearchBox() < node.getRightMargin()
+				&& particle.getRightSearchBox() > node.getLeftMargin()
+				&& particle.getBottomSearchBox() < node.getTopMargin()
+				&& particle.getTopSearchBox() > node.getBottomMargin()) {
+			return true;
+		}
+		return false;
+	}
 
-        initExtremeValue();
-        for (int i = 0; i < gridX; i++) {
-            for (int j = 0; j < gridY; j++) {
-                hash[i][j].clear();
-            }
-        }
-        for (int i = 0; i < allParticle.size(); i++) {
-            int icell = checkX(allParticle.get(i).getX());
-            int kcell = checkY(allParticle.get(i).getY());
-            hash[icell][kcell].add(new Integer(i));
-        }
-    }
+	Node noderoot;
 
-    /*
-     * digunakan untuk menyesuaikan Linked list dalam
-     *  arah sumbu y
-     */
-    private void initExtremeValue() {
-        for (int i = 0; i < listFluid.size(); i++) {
-            SPHParticle p = listFluid.get(i);
-            if (p.getY() > yMaxLinkedList) {
-                yMaxLinkedList = p.getY();
-            }
-            if (p.getY() < xMinLinkedList) {
-                yMinLinkedList = p.getY();
-            }
-        }
-    }
+	public void initTree() {
+		System.out.println("Lagi init tree... !!!");
+		noderoot = new Node(0.0, yMax, xMax, 0.0, 0);
+		for (int i = 0; i < allParticle.size(); i++) {
+			SPHParticle p = allParticle.get(i);
+			noderoot.insertParticle(p);
+			p.setSearchBoxLength(smoothingLength * 2.5);
+		}
+	}
 
-    public int checkX(double x) {
-        if (x >= xMaxLinkedList - 0.001) {
-            x = xMaxLinkedList - 0.001;
-        }
-        double dx = (x - xMinLinkedList) / 
-        		(xMaxLinkedList - xMinLinkedList);
-        double icelld = 0 + dx * (gridX - 0.001);
-        int icell = (int) icelld;
-        return icell;
-    }
+	public void singleInteraction(InteractionType<SPHParticle> interaction) {
+		for (int ny = 0; ny < gridY; ny++) {
+			for (int nx = 0; nx < gridX; nx++) {
+				if (hash[nx][ny].size() > 0) {
+					for (int a = 0; a < hash[nx][ny].size(); a++) {
+						int aa = hash[nx][ny].get(a).intValue();
+						// calculate influence
+						// on the same cell
+						for (int b = 0; b < a; b++) {
+							int bb = hash[nx][ny].get(b).intValue();
+							// int p2 = bb;
+							interaction.calculate(allParticle.get(aa),
+									allParticle.get(bb));
+						}
+						// calculate influence
+						// on east cell
+						if (nx + 1 < gridX && hash[nx + 1][ny].size() > 0) {
+							for (int b = 0; b < hash[nx + 1][ny].size(); b++) {
+								int bb = hash[nx + 1][ny].get(b).intValue();
+								interaction.calculate(allParticle.get(aa),
+										allParticle.get(bb));
+							}
+						}
+						// calculate influence on
+						// north-east cell
+						if (nx + 1 < gridX && ny + 1 < gridY
+								&& hash[nx + 1][ny + 1].size() > 0) {
+							for (int b = 0; b < hash[nx + 1][ny + 1].size(); b++) {
+								int bb = hash[nx + 1][ny + 1].get(b).intValue();
+								interaction.calculate(allParticle.get(aa),
+										allParticle.get(bb));
+							}
+						}
+						// calculate influence
+						// on north cell
+						if (ny + 1 < gridY && hash[nx][ny + 1].size() > 0) {
+							for (int b = 0; b < hash[nx][ny + 1].size(); b++) {
+								int bb = hash[nx][ny + 1].get(b).intValue();
+								interaction.calculate(allParticle.get(aa),
+										allParticle.get(bb));
+							}
+						}
+						// calculate influence on
+						// north-west cell
+						if (nx - 1 >= 0 && ny + 1 < gridY
+								&& hash[nx - 1][ny + 1].size() > 0) {
+							for (int b = 0; b < hash[nx - 1][ny + 1].size(); b++) {
+								int bb = hash[nx - 1][ny + 1].get(b).intValue();
+								interaction.calculate(allParticle.get(aa),
+										allParticle.get(bb));
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 
-    public int checkY(double y) {
-        if (y >= yMaxLinkedList - 0.001) {
-            y = yMaxLinkedList - 0.001;
-        }
-        double dy = (y - yMinLinkedList) / 
-        		(yMaxLinkedList - yMinLinkedList);
-        double kcelld = 0 + dy * (gridY - 0.001);
-        int kcell = (int) kcelld;
-        return kcell;
-    }
+	final void initLinkedList() {
 
-    private void variabelController() {
+		initExtremeValue();
+		for (int i = 0; i < gridX; i++) {
+			for (int j = 0; j < gridY; j++) {
+				hash[i][j].clear();
+			}
+		}
+		for (int i = 0; i < allParticle.size(); i++) {
+			int icell = checkX(allParticle.get(i).getX());
+			int kcell = checkY(allParticle.get(i).getY());
+			hash[icell][kcell].add(new Integer(i));
+		}
+	}
+
+	/*
+	 * digunakan untuk menyesuaikan Linked list dalam arah sumbu y
+	 */
+	private void initExtremeValue() {
+		for (int i = 0; i < listFluid.size(); i++) {
+			SPHParticle p = listFluid.get(i);
+			if (p.getY() > yMaxLinkedList) {
+				yMaxLinkedList = p.getY();
+			}
+			if (p.getY() < xMinLinkedList) {
+				yMinLinkedList = p.getY();
+			}
+		}
+	}
+
+	public int checkX(double x) {
+		if (x >= xMaxLinkedList - 0.001) {
+			x = xMaxLinkedList - 0.001;
+		}
+		double dx = (x - xMinLinkedList) / (xMaxLinkedList - xMinLinkedList);
+		double icelld = 0 + dx * (gridX - 0.001);
+		int icell = (int) icelld;
+		return icell;
+	}
+
+	public int checkY(double y) {
+		if (y >= yMaxLinkedList - 0.001) {
+			y = yMaxLinkedList - 0.001;
+		}
+		double dy = (y - yMinLinkedList) / (yMaxLinkedList - yMinLinkedList);
+		double kcelld = 0 + dy * (gridY - 0.001);
+		int kcell = (int) kcelld;
+		return kcell;
+	}
+
+	private void variabelController() {
 		sphStiffSlider.valueProperty().addListener(
 				new ChangeListener<Number>() {
 					@Override
-					public void changed(ObservableValue<? 
-							extends Number> arg0,
+					public void changed(ObservableValue<? extends Number> arg0,
 							Number arg1, Number arg2) {
-						MainProperty.sphStiff = 
-								sphStiffSlider.getValue();
+						MainProperty.sphStiff = sphStiffSlider.getValue();
 						keteranganStiff.setText(format
-								.format(MainProperty.
-										sphStiff));
+								.format(MainProperty.sphStiff));
 					}
 				});
 
 		sphStiffNearSlider.valueProperty().addListener(
 				new ChangeListener<Number>() {
 					@Override
-					public void changed(ObservableValue<?
-							extends Number> arg0,
-							Number valueLama,
-							Number valueBaru) {
+					public void changed(ObservableValue<? extends Number> arg0,
+							Number valueLama, Number valueBaru) {
 
-						MainProperty.sphStiffNear =
-								sphStiffNearSlider
+						MainProperty.sphStiffNear = sphStiffNearSlider
 								.getValue();
 						keteranganStiffNear.setText(format
-								.format(MainProperty.
-										sphStiffNear));
+								.format(MainProperty.sphStiffNear));
 					}
 				});
 
 		sphRestDenstSlider.valueProperty().addListener(
 				new ChangeListener<Number>() {
 					@Override
-					public void changed(ObservableValue<? 
-							extends Number> arg0,
+					public void changed(ObservableValue<? extends Number> arg0,
 							Number arg1, Number arg2) {
-						MainProperty.sphRestDens = 
-								sphRestDenstSlider
+						MainProperty.sphRestDens = sphRestDenstSlider
 								.getValue();
 						keteranganRestDenst.setText(format
-					.format(MainProperty.sphRestDens));
+								.format(MainProperty.sphRestDens));
 					}
 				});
 
 		timeMultSlider.valueProperty().addListener(
 				new ChangeListener<Number>() {
 					@Override
-					public void changed(ObservableValue<?
-							extends Number> arg0,
+					public void changed(ObservableValue<? extends Number> arg0,
 							Number arg1, Number arg2) {
-						MainProperty.g_timeMult = 
-								timeMultSlider.getValue();
+						MainProperty.g_timeMult = timeMultSlider.getValue();
 						keteranganTimeMult.setText(format
-						.format(MainProperty.g_timeMult));
+								.format(MainProperty.g_timeMult));
 					}
 				});
-		
-		comboBoxFluidaKedua.valueProperty().
-		addListener(new ChangeListener<TypeFluid>() {
-			@Override
-			public void changed(ObservableValue<?
-					extends TypeFluid> arg0,
-					TypeFluid arg1, TypeFluid now) {
-				if(!runningState){
-					fluidaKedua = now;
-					restart();
-				}
-			}
-		});
+
+		comboBoxFluidaKedua.valueProperty().addListener(
+				new ChangeListener<TypeFluid>() {
+					@Override
+					public void changed(
+							ObservableValue<? extends TypeFluid> arg0,
+							TypeFluid arg1, TypeFluid now) {
+						if (!runningState) {
+							fluidaKedua = now;
+							restart();
+						}
+					}
+				});
 
 	}
 
 	private void animasiController() {
 
-		tipeInteraksi.selectedToggleProperty().
-		addListener(
+		tipeInteraksi.selectedToggleProperty().addListener(
 				new ChangeListener<Toggle>() {
 					@Override
-					public void changed(ObservableValue<? 
-							extends Toggle> arg0,
+					public void changed(ObservableValue<? extends Toggle> arg0,
 							Toggle arg1, Toggle toggle) {
-						RadioButton radioButton = 
-								(RadioButton) toggle;
-						String text = radioButton.
-								getText();
+						RadioButton radioButton = (RadioButton) toggle;
+						String text = radioButton.getText();
 						if (text.equals("parallel")) {
-							typeInteraction = 
-									TypeInteraction.
-									parallel;
+							typeInteraction = TypeInteraction.parallel;
 						} else if (text.equals("tree")) {
-							typeInteraction = 
-									TypeInteraction.tree;
-						} else if (text.equals("single")) 
-						{
-							typeInteraction = 
-									TypeInteraction.
-									singleGrid;
+							typeInteraction = TypeInteraction.tree;
+						} else if (text.equals("single")) {
+							typeInteraction = TypeInteraction.singleGrid;
 						}
 					}
 				});
 
-		toggleGroupTotalAnimation.selectedToggleProperty()
-		.addListener(
+		toggleGroupTotalAnimation.selectedToggleProperty().addListener(
 				new ChangeListener<Toggle>() {
 					@Override
-					public void changed(ObservableValue<? 
-							extends Toggle> arg0,
+					public void changed(ObservableValue<? extends Toggle> arg0,
 							Toggle lama, Toggle baru) {
-						RadioButton radioButton = 
-								(RadioButton) baru;
-						int cycle = (Integer) radioButton
-								.getUserData();
+						RadioButton radioButton = (RadioButton) baru;
+						int cycle = (Integer) radioButton.getUserData();
 						animation.setCycleCount(cycle);
 					}
 				});
 
-		toggleGroupTypeAnimation.selectedToggleProperty()
-		.addListener(
+		toggleGroupTypeAnimation.selectedToggleProperty().addListener(
 				new ChangeListener<Toggle>() {
 					@Override
-					public void changed(ObservableValue<?
-							extends Toggle> arg0,
+					public void changed(ObservableValue<? extends Toggle> arg0,
 							Toggle arg1, Toggle toggle) {
-						RadioButton toggleButton = 
-								(RadioButton) toggle;
-						Animation_Type type =
-								(Animation_Type)
-								toggleButton
+						RadioButton toggleButton = (RadioButton) toggle;
+						Animation_Type type = (Animation_Type) toggleButton
 								.getUserData();
 						type_animasi = type;
 						changeSpeed();
 					}
 				});
 
-		checkBoxConvexHull.setOnAction(new
-				EventHandler<ActionEvent>() {
+		checkBoxConvexHull.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent arg0) {
-				drawConvexHull = checkBoxConvexHull.
-						isSelected();
+				drawConvexHull = checkBoxConvexHull.isSelected();
 			}
 		});
 
-		checkBoxPerimeter.setOnAction(new 
-				EventHandler<ActionEvent>() {
+		checkBoxPerimeter.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent arg0) {
-				drawPerimeter = checkBoxPerimeter
-						.isSelected();
+				drawPerimeter = checkBoxPerimeter.isSelected();
 			}
 		});
 
-		checkBoxConcavHull.setOnAction(new 
-				EventHandler<ActionEvent>() {
+		checkBoxConcavHull.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent arg0) {
-				draWConcaveHull = checkBoxConcavHull.
-						isSelected(); 
+				draWConcaveHull = checkBoxConcavHull.isSelected();
 			}
 		});
-		
+
 		comboBoxConvexHull.valueProperty().addListener(
 				new ChangeListener<String>() {
 					@Override
-					public void changed(ObservableValue<? 
-							extends String> arg0,
+					public void changed(ObservableValue<? extends String> arg0,
 							String arg1, String value) {
 						convexHullState = value;
 					}
@@ -2026,36 +1864,34 @@ public class Process {
 		comboBoxPerimeter.valueProperty().addListener(
 				new ChangeListener<String>() {
 					@Override
-					public void changed(ObservableValue<?
-							extends String> arg0,
+					public void changed(ObservableValue<? extends String> arg0,
 							String arg1, String value) {
 						perimeterState = value;
+						System.out.println(perimeterState); 
 					}
 				});
-		
-		sliderNumberIterasi.valueProperty().
-		addListener(new ChangeListener<Number>() {
-			@Override
-			public void changed(ObservableValue<? 
-					extends Number> arg0,
-					Number arg1, Number nilai) {
-				int a = (int)sliderNumberIterasi.getValue();
-				textNumberIterasi.setText(format.
-						format(a));
-				animation.setCycleCount(a);
-			}
-		});
-    }
 
-    private void setControl() {
-        variabelController();
-        animasiController();
-    }
+		sliderNumberIterasi.valueProperty().addListener(
+				new ChangeListener<Number>() {
+					@Override
+					public void changed(ObservableValue<? extends Number> arg0,
+							Number arg1, Number nilai) {
+						int a = (int) sliderNumberIterasi.getValue();
+						textNumberIterasi.setText(format.format(a));
+						animation.setCycleCount(a);
+					}
+				});
+	}
 
-    private void addVariabelController() {
+	private void setControl() {
+		variabelController();
+		animasiController();
+	}
 
-        textStiffNear = new Text();
-        textStiffNear.setText("SPH Stiff Near");
+	private void addVariabelController() {
+
+		textStiffNear = new Text();
+		textStiffNear.setText("SPH Stiff Near");
 
 		sphStiffNearSlider = new Slider();
 		sphStiffNearSlider.setPrefHeight(20);
@@ -2066,27 +1902,25 @@ public class Process {
 		sphStiffNearSlider.setOrientation(Orientation.HORIZONTAL);
 		sphStiffNearSlider.setBlockIncrement(.1);
 
-        keteranganStiffNear = new Text() ;
-        keteranganStiffNear.setText(Double.toString(
-        		MainProperty.sphStiffNear));
+		keteranganStiffNear = new Text();
+		keteranganStiffNear.setText(Double.toString(MainProperty.sphStiffNear));
 
-        textStiff = new Text(); 
-        textStiff.setText("SPH StiffNess");
+		textStiff = new Text();
+		textStiff.setText("SPH StiffNess");
 
-        sphStiffSlider = new Slider(); 
-        sphStiffSlider.setPrefHeight(20);
-        sphStiffSlider.setPrefWidth(90);
-        sphStiffSlider.setMin(0.0);
-        sphStiffSlider.setMax(500);
-        sphStiffSlider.setValue(MainProperty.sphStiff);
-        sphStiffSlider.setOrientation(Orientation.HORIZONTAL);
-        
+		sphStiffSlider = new Slider();
+		sphStiffSlider.setPrefHeight(20);
+		sphStiffSlider.setPrefWidth(90);
+		sphStiffSlider.setMin(0.0);
+		sphStiffSlider.setMax(500);
+		sphStiffSlider.setValue(MainProperty.sphStiff);
+		sphStiffSlider.setOrientation(Orientation.HORIZONTAL);
+
 		keteranganStiff = new Text();
-		keteranganStiff.setText(Double.
-				toString(MainProperty.sphStiff));
+		keteranganStiff.setText(Double.toString(MainProperty.sphStiff));
 
-        textRestDenst = new Text();
-        textRestDenst.setText("SPH Rest Densitas");
+		textRestDenst = new Text();
+		textRestDenst.setText("SPH Rest Densitas");
 
 		sphRestDenstSlider = new Slider();
 		sphRestDenstSlider.setPrefHeight(20);
@@ -2097,24 +1931,22 @@ public class Process {
 		sphRestDenstSlider.setValue(MainProperty.sphRestDens);
 
 		keteranganRestDenst = new Text();
-		keteranganRestDenst.setText(Double
-				.toString(MainProperty.sphRestDens));
+		keteranganRestDenst.setText(Double.toString(MainProperty.sphRestDens));
 
-        textTimeMult = new Text(); 
-        textTimeMult.setText("SPH Time Step");
+		textTimeMult = new Text();
+		textTimeMult.setText("SPH Time Step");
 
-        timeMultSlider = new Slider();
-        timeMultSlider.setPrefHeight(20);
-        timeMultSlider.setPrefWidth(90);
-        timeMultSlider.setMin(0.0);
-        timeMultSlider.setMax(0.1);
-        timeMultSlider.setValue(MainProperty.g_timeMult);
-        timeMultSlider.setOrientation(Orientation.HORIZONTAL);
-        
-        keteranganTimeMult = new Text();
-        keteranganTimeMult.setText(Double.toString(
-        		MainProperty.g_timeMult));
-        
+		timeMultSlider = new Slider();
+		timeMultSlider.setPrefHeight(20);
+		timeMultSlider.setPrefWidth(90);
+		timeMultSlider.setMin(0.0);
+		timeMultSlider.setMax(0.1);
+		timeMultSlider.setValue(MainProperty.g_timeMult);
+		timeMultSlider.setOrientation(Orientation.HORIZONTAL);
+
+		keteranganTimeMult = new Text();
+		keteranganTimeMult.setText(Double.toString(MainProperty.g_timeMult));
+
 		GridPane gridPane = new GridPane();
 		gridPane.setVgap(2);
 		gridPane.setHgap(5);
@@ -2130,44 +1962,36 @@ public class Process {
 		gridPane.add(textStiffNear, 0, 3);
 		gridPane.add(sphStiffNearSlider, 1, 3);
 		gridPane.add(keteranganStiffNear, 2, 3);
-		
-		  Label labelTipeFluida = new Label("Tipe Fluida Kedua"); 
-		
-		 comboBoxFluidaKedua = new ComboBox<TypeFluid>();
-            comboBoxFluidaKedua.getItems().addAll(
-            		TypeFluid.SAME_REST_DENS_1,
-            		TypeFluid.SAME_REST_DENS_2, 
-            		TypeFluid.SAME_REST_DENS_3, 
-            		TypeFluid.SAME_STIFF_1, 
-            		TypeFluid.SAME_STIFF_2, 
-            		TypeFluid.SAME_STIFF_3, 
-            		TypeFluid.SAME_STIFFNEAR_1, 
-            		TypeFluid.SAME_STIFFNEAR_2, 
-            		TypeFluid.SAME_STIFFNEAR_3,
-            		TypeFluid.OLI,
-            		TypeFluid.GLICERIN, 
-            		TypeFluid.MADU);
-            
-            comboBoxFluidaKedua.setValue(TypeFluid.OLI);
-		
+
+		Label labelTipeFluida = new Label("Tipe Fluida Kedua");
+
+		comboBoxFluidaKedua = new ComboBox<TypeFluid>();
+		comboBoxFluidaKedua.getItems().addAll(TypeFluid.SAME_REST_DENS_1,
+				TypeFluid.SAME_REST_DENS_2, TypeFluid.SAME_REST_DENS_3,
+				TypeFluid.SAME_STIFF_1, TypeFluid.SAME_STIFF_2,
+				TypeFluid.SAME_STIFF_3, TypeFluid.SAME_STIFFNEAR_1,
+				TypeFluid.SAME_STIFFNEAR_2, TypeFluid.SAME_STIFFNEAR_3,
+				TypeFluid.OLI, TypeFluid.GLICERIN, TypeFluid.MADU);
+
+		comboBoxFluidaKedua.setValue(TypeFluid.OLI);
+
 		HBox box = new HBox();
 		box.setSpacing(10);
-		box.getChildren().addAll(labelTipeFluida,
-				comboBoxFluidaKedua);
+		box.getChildren().addAll(labelTipeFluida, comboBoxFluidaKedua);
 
-        additionalController.getChildren().add(box);
-        additionalController.getChildren().add(gridPane);
-    }
+		additionalController.getChildren().add(box);
+		additionalController.getChildren().add(gridPane);
+	}
 
-    private void addAnimasiController() {
+	private void addAnimasiController() {
 
 		FlowPane flowPane = new FlowPane();
 		flowPane.setOrientation(Orientation.VERTICAL);
 		flowPane.setVgap(10);
 
 		tipeInteraksi = new ToggleGroup();
-		
-		radioButton1 = new RadioButton("single"); 
+
+		radioButton1 = new RadioButton("single");
 		radioButton1.setToggleGroup(tipeInteraksi);
 
 		radioButton2 = new RadioButton("parallel");
@@ -2192,39 +2016,37 @@ public class Process {
 
 		HBox boxTypeInteraction = new HBox();
 		boxTypeInteraction.setSpacing(5);
-		boxTypeInteraction.getChildren().
-		addAll(radioButton1,radioButton2,radioButton3);
+		boxTypeInteraction.getChildren().addAll(radioButton1, radioButton2,
+				radioButton3);
 
 		toggleGroupTotalAnimation = new ToggleGroup();
-		
-		animasi_50 = new RadioButton("50"); 
+
+		animasi_50 = new RadioButton("50");
 		animasi_50.setToggleGroup(toggleGroupTotalAnimation);
 		animasi_50.setUserData(50);
 
-		animasi_100 = new RadioButton("100"); 
+		animasi_100 = new RadioButton("100");
 		animasi_100.setToggleGroup(toggleGroupTotalAnimation);
 		animasi_100.setUserData(100);
 
-		animasi_inf = new RadioButton("INF"); 
+		animasi_inf = new RadioButton("INF");
 		animasi_inf.setToggleGroup(toggleGroupTotalAnimation);
 		animasi_inf.setUserData(Animation.INDEFINITE);
 
-		sliderNumberIterasi = new 	Slider(50, 1000,50);
+		sliderNumberIterasi = new Slider(50, 1000, 50);
 		sliderNumberIterasi.setMaxWidth(70);
-		sliderNumberIterasi.setSnapToTicks(true); 
+		sliderNumberIterasi.setSnapToTicks(true);
 		sliderNumberIterasi.setBlockIncrement(20);
 		sliderNumberIterasi.setMajorTickUnit(10);
 		sliderNumberIterasi.setMinorTickCount(10);
-		
+
 		textNumberIterasi = new Text("10");
-		
-		HBox boxNumberTimeStep = new HBox(); 
-				boxNumberTimeStep.setSpacing(5);
-				boxNumberTimeStep.getChildren().
-				addAll(animasi_50,animasi_100,
-						animasi_inf,sliderNumberIterasi, 
-						textNumberIterasi);
-				
+
+		HBox boxNumberTimeStep = new HBox();
+		boxNumberTimeStep.setSpacing(5);
+		boxNumberTimeStep.getChildren().addAll(animasi_50, animasi_100,
+				animasi_inf, sliderNumberIterasi, textNumberIterasi);
+
 		switch (cycleCount) {
 		case 10:
 			animasi_50.setSelected(true);
@@ -2239,25 +2061,22 @@ public class Process {
 
 		toggleGroupTypeAnimation = new ToggleGroup();
 
-		fastAnimasi =  new RadioButton("FAST");
+		fastAnimasi = new RadioButton("FAST");
 		fastAnimasi.setToggleGroup(toggleGroupTypeAnimation);
 		fastAnimasi.setUserData(Animation_Type.FAST_ANIMASI);
 
 		slowAnimasi = new RadioButton("SLOW");
-				slowAnimasi.setToggleGroup
-				(toggleGroupTypeAnimation);
-				slowAnimasi.setUserData(Animation_Type.
-						SLOW_ANIMASI);		
-				
+		slowAnimasi.setToggleGroup(toggleGroupTypeAnimation);
+		slowAnimasi.setUserData(Animation_Type.SLOW_ANIMASI);
+
 		medium_speed_animasi = new RadioButton("MEDIUM");
 		medium_speed_animasi.setToggleGroup(toggleGroupTypeAnimation);
 		medium_speed_animasi.setUserData(Animation_Type.MEDIUM_SPEED);
-		
-		HBox boxAnimationSpeed = new HBox() ; 
-				boxAnimationSpeed.setSpacing(10);
-				boxAnimationSpeed.getChildren().addAll(
-						fastAnimasi, slowAnimasi,
-						medium_speed_animasi);
+
+		HBox boxAnimationSpeed = new HBox();
+		boxAnimationSpeed.setSpacing(10);
+		boxAnimationSpeed.getChildren().addAll(fastAnimasi, slowAnimasi,
+				medium_speed_animasi);
 
 		switch (type_animasi) {
 		case SLOW_ANIMASI:
@@ -2271,26 +2090,20 @@ public class Process {
 			break;
 		}
 
-		snapshotButton = new Button(); 
+		snapshotButton = new Button();
 		snapshotButton.setText("TAKE A SNAP");
 		snapshotButton.setPrefWidth(100);
-		snapshotButton.setOnAction(new 
-				EventHandler
-				<ActionEvent>() {
+		snapshotButton.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent arg0) {
-				saveCanvas(
-				fieldSnapshootName
-				.getText());
+				saveCanvas(fieldSnapshootName.getText());
 			}
 		});
-		
+
 		HBox box = new HBox();
 		box.setSpacing(10);
-		box.getChildren().addAll(fieldSnapshootName, 
-			snapshotButton
-		);
-		
+		box.getChildren().addAll(fieldSnapshootName, snapshotButton);
+
 		additionalController.getChildren().add(box);
 		checkBoxPerimeter = new CheckBox();
 		checkBoxPerimeter.setText("using perimeter");
@@ -2299,9 +2112,10 @@ public class Process {
 		}
 
 		comboBoxPerimeter = new ComboBox<String>();
-		comboBoxPerimeter.setValue(perimeterBoth);
-		comboBoxPerimeter.getItems().addAll(perimeterWater, 
-				perimeterOil, perimeterBoth);
+		comboBoxPerimeter.getItems().addAll(perimeterWater, perimeterOil,
+				perimeterBoth, perimeterUnion);
+		comboBoxPerimeter.setValue(perimeterUnion);
+		perimeterState = perimeterUnion; 
 		
 
 		checkBoxConvexHull = new CheckBox();
@@ -2309,19 +2123,18 @@ public class Process {
 		if (drawConvexHull) {
 			checkBoxConvexHull.setSelected(true);
 		}
-		
 
 		comboBoxConvexHull = new ComboBox<String>();
 		comboBoxConvexHull.setValue(convexHullOil);
-		comboBoxConvexHull.getItems().addAll(convexHullWater,convexHullOil,
+		comboBoxConvexHull.getItems().addAll(convexHullWater, convexHullOil,
 				convexHullBoth, convexHullUnion);
-			
+
 		checkBoxConcavHull = new CheckBox();
 		checkBoxConcavHull.setText("using concav-hull");
-		if(draWConcaveHull){
-			checkBoxConcavHull.setSelected(true); 
+		if (draWConcaveHull) {
+			checkBoxConcavHull.setSelected(true);
 		}
-		
+
 		GridPane pane = new GridPane();
 		pane.setVgap(10);
 		pane.setHgap(10);
@@ -2330,29 +2143,25 @@ public class Process {
 		pane.add(checkBoxConvexHull, 0, 1);
 		pane.add(comboBoxConvexHull, 1, 1);
 		pane.add(checkBoxConcavHull, 0, 2);
-		
-        flowPane.getChildren().addAll(boxTypeInteraction,
-                boxNumberTimeStep,
-                boxAnimationSpeed);
 
-        additionalController.getChildren().addAll(pane,
-                flowPane);
-        
-        GridPane flow = new GridPane();
-        flow.setVgap(10);
-        flow.setHgap(10); 
+		flowPane.getChildren().addAll(boxTypeInteraction, boxNumberTimeStep,
+				boxAnimationSpeed);
 
-        buttonPlay = new Button();
-        buttonPlay.setText("PLAY");
-        buttonPlay.setPrefWidth(100);
-        buttonPlay.setOnAction(new
-        		EventHandler<ActionEvent>() {
-            @Override
-            public void handle(ActionEvent arg0) {
-                play();
-            }
-        });
-        
+		additionalController.getChildren().addAll(pane, flowPane);
+
+		GridPane flow = new GridPane();
+		flow.setVgap(10);
+		flow.setHgap(10);
+
+		buttonPlay = new Button();
+		buttonPlay.setText("PLAY");
+		buttonPlay.setPrefWidth(100);
+		buttonPlay.setOnAction(new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent arg0) {
+				play();
+			}
+		});
 
 		buttonPause = new Button();
 		buttonPause.setText("PAUSE");
@@ -2384,65 +2193,52 @@ public class Process {
 		flowPane.getChildren().add(flow);
 	}
 
-    VBox additionalController;
-    
-    public ArrayList<Integer>[][] hash;
+	VBox additionalController;
 
-    private AnchorPane getControlPane() {
-        anchorpaneController = new AnchorPane();
-        additionalController = new VBox();
-        additionalController.setTranslateX(textX + 300);
-        additionalController.setTranslateY(10);
-        additionalController.setSpacing(10);
-        addVariabelController();
-        addAnimasiController();
-        setControl();
-        anchorpaneController.getChildren().
-                add(additionalController);
-        return anchorpaneController;
-    }
+	public ArrayList<Integer>[][] hash;
 
-    public <T extends Particle> void doubleInteraction(
-            InteractionType<T> interaction) {
-        ArrayList<T> iterationParticle
-                = (ArrayList<T>) allParticle;
-        for (int ny = 0; ny < gridY; ny++) {
-            for (int nx = 0; nx < gridX; nx++) {
-                if (getHash()[nx][ny].size() > 0) {
-                    for (int a = 0; a < hash[nx][ny].
-                            size(); a++) {
-                        int aa = hash[nx][ny].get(a).
-                                intValue();
-                        for (int xc = -1; xc < 2; xc++) {
-                            for (int yc = -1; yc < 2;
-                                    yc++) {
-                                int xx = nx + xc;
-                                int yy = ny + yc;
-                                if (xx > -1 && xx < gridX
-                                        && yy > -1
-                                        && yy < gridY
-                                        && hash[xx][yy].
-                                        size() > 0) {
-                                    for (int b = 0; b
-                                        < hash[xx][yy].
-                                         size(); b++){
-                                int bb = hash[xx][yy].
-                                		get(b).intValue();
-                                if (bb != aa) {
-                                    interaction.
-                                           calculate(
-                                    iterationParticle.
-                                    get(aa),
-                                    iterationParticle.
-                                    get(bb));
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
+	private AnchorPane getControlPane() {
+		anchorpaneController = new AnchorPane();
+		additionalController = new VBox();
+		additionalController.setTranslateX(textX + 300);
+		additionalController.setTranslateY(10);
+		additionalController.setSpacing(10);
+		addVariabelController();
+		addAnimasiController();
+		setControl();
+		anchorpaneController.getChildren().add(additionalController);
+		return anchorpaneController;
+	}
+
+	public <T extends Particle> void doubleInteraction(
+			InteractionType<T> interaction) {
+		ArrayList<T> iterationParticle = (ArrayList<T>) allParticle;
+		for (int ny = 0; ny < gridY; ny++) {
+			for (int nx = 0; nx < gridX; nx++) {
+				if (getHash()[nx][ny].size() > 0) {
+					for (int a = 0; a < hash[nx][ny].size(); a++) {
+						int aa = hash[nx][ny].get(a).intValue();
+						for (int xc = -1; xc < 2; xc++) {
+							for (int yc = -1; yc < 2; yc++) {
+								int xx = nx + xc;
+								int yy = ny + yc;
+								if (xx > -1 && xx < gridX && yy > -1
+										&& yy < gridY
+										&& hash[xx][yy].size() > 0) {
+									for (int b = 0; b < hash[xx][yy].size(); b++) {
+										int bb = hash[xx][yy].get(b).intValue();
+										if (bb != aa) {
+											interaction.calculate(
+													iterationParticle.get(aa),
+													iterationParticle.get(bb));
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 }
