@@ -1,11 +1,10 @@
 package org.fjr.main;
 
 import java.awt.Point;
+import java.io.PrintWriter;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.concurrent.ForkJoinPool;
-
-import javax.xml.bind.annotation.adapters.HexBinaryAdapter;
 
 import org.fjr.neighboor.DoubleInteraction;
 import org.fjr.neighboor.InteractionType;
@@ -39,7 +38,6 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.AnchorPane;
-import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -120,7 +118,11 @@ public class Process {
 
 	private boolean usingStaggeredGrid = true;
 	private boolean usingBoundaryParticle = false;
-	int cycleCount = Timeline.INDEFINITE;
+	
+	
+	final int MAXIMUM_ITERASI = 3000;
+	
+	int cycleCount = MAXIMUM_ITERASI;
 
 	final Canvas canvas;
 	final Group root;
@@ -148,11 +150,11 @@ public class Process {
 	TypeInteraction typeInteraction = TypeInteraction.parallel;
 
 	public double getWidth() {
-		return xwidth + 300;
+		return xwidth + 450;
 	}
 
 	public double getHeight() {
-		return ywidth;
+		return ywidth + 100;
 	}
 
 	public TypeDrawer getTypeDrawer() {
@@ -219,9 +221,6 @@ public class Process {
 	
 	TextField fieldSnapshootName;
 
-	
-	
-	
 	boolean saveToFile = false;
 	boolean drawPerimeter = false;
 	boolean drawConvexHull = false;
@@ -240,8 +239,16 @@ public class Process {
 
 	CheckBox checkBoxPerimeter, checkBoxConvexHull;
 
+
 	ComboBox<String> comboBoxPerimeter, comboBoxConvexHull;
 
+
+	enum TipeSnapshot{ 	MAIN_WINDOW, SECOND_WINDOW } 
+	
+	TipeSnapshot tipeSnapshot = TipeSnapshot.SECOND_WINDOW; 
+	
+	ComboBox<TipeSnapshot> comboBoxSnapshot; 
+	
 	CheckBox checkBoxConcavHull;
 
 	final String perimeterWater = "WATER";
@@ -254,13 +261,12 @@ public class Process {
 	final String convexHullBoth = "BOTH";
 	final String convexHullUnion = "UNION";
 
-	enum PerimeterStates {
-		WATER, OIL, BOTH, UNION
-	}
+	
+	double maksimumTinggi = Double.MIN_VALUE; 
+	double maksimumLuas = Double.MIN_VALUE; 
 
-	enum ConvexHullStates {
-		WATER, OIL, BOTH, UNION
-	}
+	enum PerimeterStates { WATER, OIL, BOTH, UNION}
+	enum ConvexHullStates { WATER, OIL, BOTH, UNION}
 
 	String perimeterState = perimeterWater;
 	String convexHullState = convexHullOil;
@@ -269,8 +275,6 @@ public class Process {
 	ConvexHullStates convexHullStates = ConvexHullStates.OIL;
 
 	Text textIterasi;
-	
-	
 	
 	final EventHandler<ActionEvent> event = new EventHandler<ActionEvent>() {
 		@Override
@@ -290,6 +294,10 @@ public class Process {
 			double presentasi = meanTinggiOli/ meanTinggiUnion * 100; 
 			setKeteranganTinggiPerimeter(fieldPresentasiTinggi, 
 					format.format(presentasi));
+			if(presentasi >  maksimumTinggi){
+				maksimumTinggi = presentasi; 
+				fieldTinggiMaksimum.setText(format.format(maksimumTinggi));
+			}
 		}
 		if (drawConvexHull) {
 			createConvexHull();
@@ -299,6 +307,10 @@ public class Process {
 			setKeteranganLuasArea(fieldLuasWater, format.format(luasSeluruhFluida));
 			double persentasi = luasOli / luasSeluruhFluida * 100;
 			setKeteranganLuasArea(fieldPersentaseLuas, format.format(persentasi));
+			if(persentasi > maksimumLuas){
+				maksimumLuas = persentasi; 
+				fieldLuasMaksimum.setText(format.format(maksimumLuas));
+			}
 		}
 		if (draWConcaveHull) {
 			createConcavHull();
@@ -350,7 +362,15 @@ public class Process {
 	
 	// ini untuk menampilkan tinggi rata-rata perimeter 
 	TextField fieldTinggiOli, fieldTinggiUnion, fieldPresentasiTinggi; 
+	
+	TextField fieldTinggiMaksimum, fieldLuasMaksimum; 
+	
+	
+	ArrayList<Double> timestepList;
 
+	PrintWriter writer;
+	
+	
 	@SuppressWarnings("unchecked")
 	public Process() throws Exception {
 		triangular = new TriangulationRepresentation();
@@ -361,7 +381,9 @@ public class Process {
 				return 12; // kayaknya ini nilai ideal...
 			}
 		});
-
+		
+		timestepList = new ArrayList<>(); 
+		
 		kernel = new WendlandKernel();
 		this.typeDrawer = TypeDrawer.canvas;
 		pool = new ForkJoinPool();
@@ -450,7 +472,7 @@ public class Process {
 		fieldLuasOli.setEditable(false);
 		fieldLuasWater = new TextField();
 		fieldLuasWater.setPrefWidth(60);
-		fieldLuasWater.setEditable(false);
+		fieldLuasWater.setEditable(false); 
 		fieldPersentaseLuas = new TextField();
 		fieldPersentaseLuas.setPrefWidth(60);
 		fieldPersentaseLuas.setEditable(false);
@@ -458,13 +480,22 @@ public class Process {
 		fieldTinggiOli = new TextField(); 
 		fieldTinggiOli.setPrefWidth(60);
 		fieldTinggiOli.setEditable(false); 
+		
 		fieldTinggiUnion = new TextField(); 
 		fieldTinggiUnion.setPrefWidth(60); 
 		fieldTinggiUnion.setEditable(false); 
 		fieldPresentasiTinggi = new TextField(); 
 		fieldPresentasiTinggi.setPrefWidth(60); 
 		fieldPresentasiTinggi.setEditable(false); 
-
+		
+		fieldTinggiMaksimum = new TextField();
+		fieldTinggiMaksimum.setPrefWidth(60);
+		fieldTinggiMaksimum.setEditable(false);
+		fieldLuasMaksimum = new TextField(); 
+		fieldLuasMaksimum.setPrefWidth(60); 
+		fieldLuasMaksimum.setEditable(false);
+		
+		
 		Label labelLuasAreaOli = new Label("Area Oli");
 		boxLuasAreaConvexHull.getChildren().add(labelLuasAreaOli);
 		boxLuasAreaConvexHull.getChildren().add(fieldLuasOli);
@@ -499,7 +530,19 @@ public class Process {
 		
 		boxCanvas.getChildren().add(boxTinggiPerimeter); 
 		
-
+		
+		HBox boxMaksimum = new HBox(); 
+		boxMaksimum.setSpacing(10); 
+		boxMaksimum.getChildren().addAll(
+				new Label("MAKS LUAS: "), 
+				fieldLuasMaksimum ,
+				new Label("MAKS TINGGI: "), 
+				fieldTinggiMaksimum
+				);
+		
+		boxCanvas.getChildren().add(boxMaksimum); 
+		
+		
 		root.getChildren().add(boxCanvas);
 		
 		convexHull = new FastConvexHull();
@@ -774,6 +817,7 @@ public class Process {
 		x = listPoint.get(0).getX();
 		y = listPoint.get(size - 1).getY();
 		result = result - (x * y);
+		
 		return result * 0.5;
 	}
 
@@ -845,7 +889,7 @@ public class Process {
 			durasi = Duration.millis(500);
 			break;
 		case MEDIUM_SPEED:
-			durasi = Duration.millis(300);
+			durasi = Duration.millis(100);
 			break;
 		}
 		animation.getKeyFrames().setAll(new KeyFrame(durasi, event));
@@ -903,6 +947,13 @@ public class Process {
 		initProperty();
 		initNeighboor();
 		setKeteranganIterasi();
+		setNilaiMaksimum();
+	}
+	
+	
+	public void setNilaiMaksimum(){
+		maksimumLuas = Double.MIN_VALUE; 
+		maksimumTinggi = Double.MIN_VALUE;
 	}
 
 	public void initNeighboor() {
@@ -1054,7 +1105,8 @@ public class Process {
 			break;
 		}
 
-		InteractionType<SPHParticle> firstInteraction = new InteractionType<SPHParticle>() {
+		InteractionType<SPHParticle> firstInteraction = 
+				new InteractionType<SPHParticle>() {
 			@Override
 			public void calculate(SPHParticle p1, SPHParticle p2) {
 				double dx = p1.getX() - p2.getX();
@@ -1835,6 +1887,7 @@ public class Process {
 			@Override
 			public void handle(ActionEvent arg0) {
 				drawConvexHull = checkBoxConvexHull.isSelected();
+				animasi();
 			}
 		});
 
@@ -1842,6 +1895,7 @@ public class Process {
 			@Override
 			public void handle(ActionEvent arg0) {
 				drawPerimeter = checkBoxPerimeter.isSelected();
+				animasi(); 
 			}
 		});
 
@@ -1849,6 +1903,7 @@ public class Process {
 			@Override
 			public void handle(ActionEvent arg0) {
 				draWConcaveHull = checkBoxConcavHull.isSelected();
+				animasi(); 
 			}
 		});
 
@@ -1867,9 +1922,26 @@ public class Process {
 					public void changed(ObservableValue<? extends String> arg0,
 							String arg1, String value) {
 						perimeterState = value;
-						System.out.println(perimeterState); 
 					}
 				});
+		
+		
+		comboBoxSnapshot.valueProperty().addListener(new 
+				ChangeListener<TipeSnapshot>() {
+			@Override
+			public void changed(ObservableValue<? extends TipeSnapshot> arg0,
+					TipeSnapshot arg1, TipeSnapshot value) {
+				switch(value){
+				case MAIN_WINDOW:
+					save.setNode(canvas);
+					break; 
+				case SECOND_WINDOW: 
+					save.setNode(canvasPlot);
+					break; 
+				}
+			}
+		});
+
 
 		sliderNumberIterasi.valueProperty().addListener(
 				new ChangeListener<Number>() {
@@ -1881,6 +1953,7 @@ public class Process {
 						animation.setCycleCount(a);
 					}
 				});
+		
 	}
 
 	private void setControl() {
@@ -1889,7 +1962,6 @@ public class Process {
 	}
 
 	private void addVariabelController() {
-
 		textStiffNear = new Text();
 		textStiffNear.setText("SPH Stiff Near");
 
@@ -2033,14 +2105,14 @@ public class Process {
 		animasi_inf.setToggleGroup(toggleGroupTotalAnimation);
 		animasi_inf.setUserData(Animation.INDEFINITE);
 
-		sliderNumberIterasi = new Slider(50, 1000, 50);
+		sliderNumberIterasi = new Slider(50, 3000, 50);
 		sliderNumberIterasi.setMaxWidth(70);
 		sliderNumberIterasi.setSnapToTicks(true);
 		sliderNumberIterasi.setBlockIncrement(20);
 		sliderNumberIterasi.setMajorTickUnit(10);
 		sliderNumberIterasi.setMinorTickCount(10);
 
-		textNumberIterasi = new Text("10");
+		textNumberIterasi = new Text("50");
 
 		HBox boxNumberTimeStep = new HBox();
 		boxNumberTimeStep.setSpacing(5);
@@ -2095,15 +2167,23 @@ public class Process {
 		snapshotButton.setPrefWidth(100);
 		snapshotButton.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
-			public void handle(ActionEvent arg0) {
+			public void handle(ActionEvent name) {
 				saveCanvas(fieldSnapshootName.getText());
+				System.out.println("file saved in: "+fieldSnapshootName.getText()); 
 			}
 		});
-
+		
+		comboBoxSnapshot = new ComboBox<TipeSnapshot>();
+		comboBoxSnapshot.getItems().addAll(TipeSnapshot.MAIN_WINDOW, 
+				TipeSnapshot.SECOND_WINDOW); 
+		comboBoxSnapshot.setPrefWidth(100);
+		comboBoxSnapshot.setValue(TipeSnapshot.MAIN_WINDOW);
+		
 		HBox box = new HBox();
 		box.setSpacing(10);
-		box.getChildren().addAll(fieldSnapshootName, snapshotButton);
-
+		box.getChildren().addAll(fieldSnapshootName, snapshotButton,
+				comboBoxSnapshot);
+		
 		additionalController.getChildren().add(box);
 		checkBoxPerimeter = new CheckBox();
 		checkBoxPerimeter.setText("using perimeter");
