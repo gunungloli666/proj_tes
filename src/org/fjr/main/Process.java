@@ -14,7 +14,6 @@ import org.fjr.particle.SPHParticle;
 import org.fjr.particle.TypeFluid;
 import org.fjr.tree.Node;
 
-import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
@@ -57,6 +56,9 @@ import signalprocesser.voronoi.VoronoiAlgorithm;
 import signalprocesser.voronoi.representation.triangulation.TriangulationRepresentation;
 import signalprocesser.voronoi.representation.triangulation.VHalfEdge;
 import fjr.savetoimage.SaveCanvasToImage;
+
+
+
 
 public class Process {
 
@@ -121,6 +123,7 @@ public class Process {
 	
 	
 	final int MAXIMUM_ITERASI = 3000;
+	final int MINIMUM_ITERASI = 50; 
 	
 	int cycleCount = MAXIMUM_ITERASI;
 
@@ -214,7 +217,7 @@ public class Process {
 		SLOW_ANIMASI, FAST_ANIMASI, MEDIUM_SPEED
 	}
 
-	Animation_Type type_animasi = Animation_Type.SLOW_ANIMASI;
+	Animation_Type type_animasi = Animation_Type.MEDIUM_SPEED;
 	ArrayList<Integer> numberIterasi = new ArrayList<>();
 
 	SaveCanvasToImage save;
@@ -239,9 +242,7 @@ public class Process {
 
 	CheckBox checkBoxPerimeter, checkBoxConvexHull;
 
-
 	ComboBox<String> comboBoxPerimeter, comboBoxConvexHull;
-
 
 	enum TipeSnapshot{ 	MAIN_WINDOW, SECOND_WINDOW } 
 	
@@ -320,11 +321,11 @@ public class Process {
 		setKeteranganIterasi();
 	}
 
-	public void setKeteranganTinggiPerimeter(TextField field, String tinggi){
+	public void setKeteranganTinggiPerimeter(Label field, String tinggi){
 		field.setText(tinggi);
 	}
 	
-	public void setKeteranganLuasArea(TextField field, String luas) {
+	public void setKeteranganLuasArea(Label field, String luas) {
 		field.setText(luas);
 	}
 
@@ -358,17 +359,21 @@ public class Process {
 	Button snapshotButton;
 
 	// Ini untuk menampilkan luas area dari sebaran fluida
-	TextField fieldLuasOli, fieldLuasWater, fieldPersentaseLuas;
+	Label fieldLuasOli, fieldLuasWater, fieldPersentaseLuas;
 	
 	// ini untuk menampilkan tinggi rata-rata perimeter 
-	TextField fieldTinggiOli, fieldTinggiUnion, fieldPresentasiTinggi; 
+	Label fieldTinggiOli, fieldTinggiUnion, fieldPresentasiTinggi; 
 	
-	TextField fieldTinggiMaksimum, fieldLuasMaksimum; 
+	Label fieldTinggiMaksimum, fieldLuasMaksimum; 
 	
 	
-	ArrayList<Double> timestepList;
+	ArrayList<Double> listTimeStep;
 
-	PrintWriter writer;
+	PrintWriter writerDataToFile;
+	
+	CheckBox checkboxWriteDataSimulasiToTextFile; // untuk menentukan presentasi luas dan Ketinggian ditulis ke file 
+						  // atau bukan.. 
+	TextField fieldFileOutputForDataText; 
 	
 	
 	@SuppressWarnings("unchecked")
@@ -382,7 +387,9 @@ public class Process {
 			}
 		});
 		
-		timestepList = new ArrayList<>(); 
+		listTimeStep = new ArrayList<>(); 
+		
+//		writer = PrintWriter(); 
 		
 		kernel = new WendlandKernel();
 		this.typeDrawer = TypeDrawer.canvas;
@@ -460,6 +467,30 @@ public class Process {
 			}
 		});
 
+		
+		
+		root.getChildren().add(getKeteranganData());
+		
+		convexHull = new FastConvexHull();
+
+		initProperty();
+
+		AnchorPane pane = getControlPane();
+		root.getChildren().add(pane);
+		pane.setTranslateX(xwidth - 220);
+
+		animation.setCycleCount(cycleCount);
+		animation.setAutoReverse(false);
+		
+		
+		setKeteranganIterasi();
+	}
+	
+
+	final String borderColor = "-fx-border-color: #a9a9a9; -fx-border-width: 1; "
+			+ "-fx-border-style: solid;  -fx-padding: 2;    -fx-border-radius: 12;"; 
+	
+	public VBox getKeteranganData(){
 		VBox boxCanvas = new VBox();
 		boxCanvas.setSpacing(10);
 		boxCanvas.getChildren().addAll(canvas, canvasPlot);
@@ -467,33 +498,37 @@ public class Process {
 		HBox boxLuasAreaConvexHull = new HBox();
 		boxLuasAreaConvexHull.setSpacing(5);
 
-		fieldLuasOli = new TextField();
+		fieldLuasOli = new Label();
+		fieldLuasOli.setStyle(borderColor);
 		fieldLuasOli.setPrefWidth(60);
-		fieldLuasOli.setEditable(false);
-		fieldLuasWater = new TextField();
+		
+		fieldLuasWater = new Label();
+		fieldLuasWater.setStyle(borderColor); 
 		fieldLuasWater.setPrefWidth(60);
-		fieldLuasWater.setEditable(false); 
-		fieldPersentaseLuas = new TextField();
+
+		fieldPersentaseLuas = new Label();
+		fieldPersentaseLuas.setStyle(borderColor);
 		fieldPersentaseLuas.setPrefWidth(60);
-		fieldPersentaseLuas.setEditable(false);
 	
-		fieldTinggiOli = new TextField(); 
+		fieldTinggiOli = new Label(); 
+		fieldTinggiOli.setStyle(borderColor);
 		fieldTinggiOli.setPrefWidth(60);
-		fieldTinggiOli.setEditable(false); 
 		
-		fieldTinggiUnion = new TextField(); 
+		fieldTinggiUnion = new Label(); 
+		fieldTinggiUnion.setStyle(borderColor);
 		fieldTinggiUnion.setPrefWidth(60); 
-		fieldTinggiUnion.setEditable(false); 
-		fieldPresentasiTinggi = new TextField(); 
-		fieldPresentasiTinggi.setPrefWidth(60); 
-		fieldPresentasiTinggi.setEditable(false); 
 		
-		fieldTinggiMaksimum = new TextField();
+		fieldPresentasiTinggi = new Label(); 
+		fieldPresentasiTinggi.setStyle(borderColor);
+		fieldPresentasiTinggi.setPrefWidth(60); 
+		
+		fieldTinggiMaksimum = new Label();
+		fieldTinggiMaksimum.setStyle(borderColor);
 		fieldTinggiMaksimum.setPrefWidth(60);
-		fieldTinggiMaksimum.setEditable(false);
-		fieldLuasMaksimum = new TextField(); 
+		
+		fieldLuasMaksimum = new Label(); 
+		fieldLuasMaksimum.setStyle(borderColor);
 		fieldLuasMaksimum.setPrefWidth(60); 
-		fieldLuasMaksimum.setEditable(false);
 		
 		
 		Label labelLuasAreaOli = new Label("Area Oli");
@@ -542,21 +577,7 @@ public class Process {
 		
 		boxCanvas.getChildren().add(boxMaksimum); 
 		
-		
-		root.getChildren().add(boxCanvas);
-		
-		convexHull = new FastConvexHull();
-
-		initProperty();
-
-		AnchorPane pane = getControlPane();
-		root.getChildren().add(pane);
-		pane.setTranslateX(xwidth - 220);
-
-		animation.setCycleCount(cycleCount);
-		animation.setAutoReverse(false);
-
-		setKeteranganIterasi();
+		return  boxCanvas; 
 	}
 
 	double deltaX, deltaY, stepPerimeter;
@@ -1859,16 +1880,16 @@ public class Process {
 					}
 				});
 
-		toggleGroupTotalAnimation.selectedToggleProperty().addListener(
-				new ChangeListener<Toggle>() {
-					@Override
-					public void changed(ObservableValue<? extends Toggle> arg0,
-							Toggle lama, Toggle baru) {
-						RadioButton radioButton = (RadioButton) baru;
-						int cycle = (Integer) radioButton.getUserData();
-						animation.setCycleCount(cycle);
-					}
-				});
+//		toggleGroupTotalAnimation.selectedToggleProperty().addListener(
+//				new ChangeListener<Toggle>() {
+//					@Override
+//					public void changed(ObservableValue<? extends Toggle> arg0,
+//							Toggle lama, Toggle baru) {
+//						RadioButton radioButton = (RadioButton) baru;
+//						int cycle = (Integer) radioButton.getUserData();
+//						animation.setCycleCount(cycle);
+//					}
+//				});
 
 		toggleGroupTypeAnimation.selectedToggleProperty().addListener(
 				new ChangeListener<Toggle>() {
@@ -2091,45 +2112,22 @@ public class Process {
 		boxTypeInteraction.getChildren().addAll(radioButton1, radioButton2,
 				radioButton3);
 
-		toggleGroupTotalAnimation = new ToggleGroup();
-
-		animasi_50 = new RadioButton("50");
-		animasi_50.setToggleGroup(toggleGroupTotalAnimation);
-		animasi_50.setUserData(50);
-
-		animasi_100 = new RadioButton("100");
-		animasi_100.setToggleGroup(toggleGroupTotalAnimation);
-		animasi_100.setUserData(100);
-
-		animasi_inf = new RadioButton("INF");
-		animasi_inf.setToggleGroup(toggleGroupTotalAnimation);
-		animasi_inf.setUserData(Animation.INDEFINITE);
-
-		sliderNumberIterasi = new Slider(50, 3000, 50);
+		sliderNumberIterasi = new Slider(MINIMUM_ITERASI, MAXIMUM_ITERASI, MAXIMUM_ITERASI);
 		sliderNumberIterasi.setMaxWidth(70);
 		sliderNumberIterasi.setSnapToTicks(true);
 		sliderNumberIterasi.setBlockIncrement(20);
-		sliderNumberIterasi.setMajorTickUnit(10);
-		sliderNumberIterasi.setMinorTickCount(10);
+		sliderNumberIterasi.setMajorTickUnit(20);
+		sliderNumberIterasi.setMinorTickCount(20);
 
-		textNumberIterasi = new Text("50");
+		textNumberIterasi = new Text(Integer.toString(MAXIMUM_ITERASI));
 
 		HBox boxNumberTimeStep = new HBox();
 		boxNumberTimeStep.setSpacing(5);
-		boxNumberTimeStep.getChildren().addAll(animasi_50, animasi_100,
-				animasi_inf, sliderNumberIterasi, textNumberIterasi);
 
-		switch (cycleCount) {
-		case 10:
-			animasi_50.setSelected(true);
-			break;
-		case 100:
-			animasi_100.setSelected(true);
-			break;
-		case Animation.INDEFINITE:
-			animasi_inf.setSelected(true);
-			break;
-		}
+		Text textIterasi = new Text("Jumlah Iterasi: "); 
+		
+		boxNumberTimeStep.getChildren().addAll(textIterasi, sliderNumberIterasi, 
+				textNumberIterasi);
 
 		toggleGroupTypeAnimation = new ToggleGroup();
 
@@ -2194,10 +2192,11 @@ public class Process {
 		comboBoxPerimeter = new ComboBox<String>();
 		comboBoxPerimeter.getItems().addAll(perimeterWater, perimeterOil,
 				perimeterBoth, perimeterUnion);
-		comboBoxPerimeter.setValue(perimeterUnion);
+		
+		
+		comboBoxPerimeter.setValue(perimeterBoth);
 		perimeterState = perimeterUnion; 
 		
-
 		checkBoxConvexHull = new CheckBox();
 		checkBoxConvexHull.setText("using convex hull");
 		if (drawConvexHull) {
@@ -2205,7 +2204,9 @@ public class Process {
 		}
 
 		comboBoxConvexHull = new ComboBox<String>();
-		comboBoxConvexHull.setValue(convexHullOil);
+		
+		comboBoxConvexHull.setValue(convexHullBoth);
+		
 		comboBoxConvexHull.getItems().addAll(convexHullWater, convexHullOil,
 				convexHullBoth, convexHullUnion);
 
