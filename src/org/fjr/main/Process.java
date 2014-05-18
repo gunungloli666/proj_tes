@@ -1,7 +1,10 @@
 package org.fjr.main;
 
 import java.awt.Point;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.concurrent.ForkJoinPool;
@@ -286,6 +289,7 @@ public class Process {
 
 	public void animasi() {
 		defaultStep();
+		StringBuilder builder = new StringBuilder(); 
 		if (drawPerimeter) {
 			createPerimeter();
 			double meanTinggiOli = meanOfPerimeter(yPerimeterOil);
@@ -299,7 +303,11 @@ public class Process {
 				maksimumTinggi = presentasi; 
 				fieldTinggiMaksimum.setText(format.format(maksimumTinggi));
 			}
+			builder.append(format.format(presentasi)); 
+		}else{
+			builder.append("    "); 
 		}
+		builder.append("|"); 
 		if (drawConvexHull) {
 			createConvexHull();
 			double luasOli = areaOfConvexHull(oilConvexHull);
@@ -312,9 +320,22 @@ public class Process {
 				maksimumLuas = persentasi; 
 				fieldLuasMaksimum.setText(format.format(maksimumLuas));
 			}
+			builder.append(format.format(persentasi)); 
+		}else{
+			builder.append("    "); 
 		}
 		if (draWConcaveHull) {
 			createConcavHull();
+		}
+		
+		if(checkboxWriteDataSimulasiToTextFile.isSelected()){
+//			System.out.println("checkbox for read file is selected... "); 
+			if(writerDataToFile!=null){
+				System.out.println(builder.toString()); 
+				writerDataToFile.println(builder.toString()); 
+			}else{
+//				System.out.println("writer null.."); 
+			}
 		}
 		redrawCircle();
 		iterasiCount++;
@@ -372,7 +393,7 @@ public class Process {
 	PrintWriter writerDataToFile;
 	
 	CheckBox checkboxWriteDataSimulasiToTextFile; // untuk menentukan presentasi luas dan Ketinggian ditulis ke file 
-						  // atau bukan.. 
+												 // atau bukan.. 
 	TextField fieldFileOutputForDataText; 
 	
 	
@@ -488,9 +509,12 @@ public class Process {
 	
 
 	final String borderColor = "-fx-border-color: #a9a9a9; -fx-border-width: 1; "
-			+ "-fx-border-style: solid;  -fx-padding: 2;    -fx-border-radius: 12;"; 
+			+ "-fx-border-style: solid;  -fx-padding: 2;    -fx-border-radius: 4;"; 
+	
+	String rootFile = "E:/data simulasi/data1.txt"; 
 	
 	public VBox getKeteranganData(){
+		
 		VBox boxCanvas = new VBox();
 		boxCanvas.setSpacing(10);
 		boxCanvas.getChildren().addAll(canvas, canvasPlot);
@@ -577,9 +601,40 @@ public class Process {
 		
 		boxCanvas.getChildren().add(boxMaksimum); 
 		
+		
+		// untuk menambahkan keterangan simpan ke file
+		HBox boxWriteDataToFile = new HBox(); 
+		boxWriteDataToFile.setSpacing(10); 
+		
+		checkboxWriteDataSimulasiToTextFile = new CheckBox(); 
+		checkboxWriteDataSimulasiToTextFile.setText("TULIS KE FILE");
+		
+		checkboxWriteDataSimulasiToTextFile.setOnAction(new EventHandler<ActionEvent>() {
+			@Override
+			public void handle(ActionEvent arg0) {
+				if(checkboxWriteDataSimulasiToTextFile.isSelected()){
+					createWriter();
+				}
+			}
+		});
+		boxWriteDataToFile.getChildren().add(checkboxWriteDataSimulasiToTextFile); 
+		boxCanvas.getChildren().add(boxWriteDataToFile); 
 		return  boxCanvas; 
 	}
 
+	
+
+	public void closeWriter(PrintWriter writer){
+		if(writer != null){
+			writer.close();
+		}
+	}
+	
+	public PrintWriter getWriter(){
+		return writerDataToFile; 
+	}
+	
+	
 	double deltaX, deltaY, stepPerimeter;
 	double margin;
 
@@ -681,7 +736,6 @@ public class Process {
 		double unionInterval = deltaUnion / numberPerimeter; 
 		double unionMargin = unionInterval * 0.5; 
 		
-		
 		if (usingMaksimumValue) {
 			double waterStep = xMinimumWater;
 			for (int i = 0; i < numberPerimeter; i++) {
@@ -731,7 +785,6 @@ public class Process {
 				}
 				oilStep += oilInterval;
 			}
-			
 			
 			// ini untuk seluruh partikel
 			double unionStep = xMinimumUnion; 
@@ -902,6 +955,7 @@ public class Process {
 	Duration durasi = Duration.millis(100);
 
 	public Duration changeSpeed() {
+		System.out.println(type_animasi);
 		switch (type_animasi) {
 		case FAST_ANIMASI:
 			durasi = Duration.millis(20);
@@ -923,15 +977,13 @@ public class Process {
 
 	public void pause() {
 		animation.pause();
-		// runningThread = false;
+		flushFile();
 	}
 
 	public void play() {
 		runningState = true;
-		// save.setMainFolder(fieldSnapshootName.getText());
-		// save.setMainFolder("hasil akhir");
+		createWriter(); 
 		animation.play();
-		// thread.start();
 	}
 
 	private void initProperty() {
@@ -946,11 +998,25 @@ public class Process {
 			createConvexHull();
 		}
 		if (draWConcaveHull) {
-			createConcavHull();
+			createConcavHull(); 
 		}
 		redrawCircle();
 	}
-
+	
+	
+	public  void createWriter() {
+		if(! checkboxWriteDataSimulasiToTextFile.isSelected()){
+			return; 
+		}
+		if(writerDataToFile == null){
+			try {
+				writerDataToFile = new PrintWriter(rootFile, "UTF-8");
+			} catch (FileNotFoundException | UnsupportedEncodingException e) {
+				e.printStackTrace();
+			} 
+		}
+	}
+	
 	public void restart() {
 		runningState = false;
 		animation.stop();
@@ -969,9 +1035,16 @@ public class Process {
 		initNeighboor();
 		setKeteranganIterasi();
 		setNilaiMaksimum();
+		flushFile();
 	}
 	
-	
+
+	public void flushFile(){
+		if(writerDataToFile != null){
+			writerDataToFile.flush();
+		}
+	}
+
 	public void setNilaiMaksimum(){
 		maksimumLuas = Double.MIN_VALUE; 
 		maksimumTinggi = Double.MIN_VALUE;
@@ -1381,7 +1454,6 @@ public class Process {
 			} else if (perimeterState.equals(perimeterUnion)) {
 				drawPerimeter(gcCanvasPlot, Color.GREEN, xPerimeterUnion, yPerimeterUnion);
 				drawPerimeter(gcCanvasPlot, Color.MEDIUMORCHID, xPerimeterOil,yPerimeterOil);
-//				System.out.println("pertama..."); 
 			}
 		}
 		if (drawConvexHull) {
@@ -1427,7 +1499,6 @@ public class Process {
 		gc.setStroke(color);
 		gc.beginPath();
 		gc.setLineWidth(1);
-		// int initIndex = (int) (list.size()/2.) ;
 		int initIndex = 0;
 		int endIndex = (int) (list.size());
 		double x = list.get(initIndex).getX() * drawingFactorX;
@@ -1544,7 +1615,7 @@ public class Process {
 		double deltax = p.getX() - c.getX();
 		double deltay = p.getY() - c.getY();
 		if (deltax * deltax + deltay * deltay <= c.getRadius()) {
-			return true;
+			return true; 
 		}
 		return false;
 	}
@@ -2112,7 +2183,8 @@ public class Process {
 		boxTypeInteraction.getChildren().addAll(radioButton1, radioButton2,
 				radioButton3);
 
-		sliderNumberIterasi = new Slider(MINIMUM_ITERASI, MAXIMUM_ITERASI, MAXIMUM_ITERASI);
+		sliderNumberIterasi = new Slider(MINIMUM_ITERASI,
+				MAXIMUM_ITERASI, MAXIMUM_ITERASI);
 		sliderNumberIterasi.setMaxWidth(70);
 		sliderNumberIterasi.setSnapToTicks(true);
 		sliderNumberIterasi.setBlockIncrement(20);
@@ -2250,7 +2322,8 @@ public class Process {
 		buttonPause.setOnAction(new EventHandler<ActionEvent>() {
 			@Override
 			public void handle(ActionEvent arg0) {
-				animation.pause();
+//				animation.pause();
+				pause();
 			}
 		});
 
