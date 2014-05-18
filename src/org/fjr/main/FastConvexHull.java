@@ -54,6 +54,10 @@ public class FastConvexHull {
 		for (int i = 1; i < lLowerSize - 1; i++) {
 			result.add(lLower[i]);
 		}
+//		
+//		for (int i = lLowerSize - 2 ; i >=  1; i--) {
+//			result.add(lLower[i]);
+//		}
 		return result;
 	}
 
